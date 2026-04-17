@@ -88,6 +88,32 @@
 - Efficiency: Build once, reuse
 - Promotion pattern ready for approval flows
 
+**GitHub Actions SHA Pinning Policy:** All `uses:` references in GitHub Actions workflows must be pinned to immutable SHA hashes rather than floating version tags (e.g., `@v4`). Version tags must appear as inline comments for human readability.
+- Rationale: Floating tags are supply chain attack vectors — a compromised action repo can silently push malicious code to a tag
+- SHAs are immutable: exact bytes that ran in review run in prod
+- Verified SHAs (as of 2026-04-17):
+  - `actions/checkout` → `11bd71901bbe5b1630ceea73d27597364c9af683` (v4.2.2)
+  - `actions/setup-node` → `39370e3970a6d050c480ffad4ff0ed4d3fdee5af` (v4.1.0)
+  - `azure/login` → `6c251865b4e6290e7b78be643ea2d005702d2035` (v2.1.0)
+  - `Azure/static-web-apps-deploy` → `1a947af9992250f3bc2e68ad0754c0b0c11566c9` (v1.5.0)
+- Outstanding: `upload-artifact@v4` and `download-artifact@v4` pending SHA verification
+
+## Security Hardening (Copper, 2026-04-17)
+
+**Function-Level Auth Middleware:** All HTTP handlers must validate `x-ms-client-principal` header via shared `requireAuth()` / `requireAdmin()` in `src/shared/auth.ts`.
+- Pattern: Every handler imports middleware, validates auth after OPTIONS check, returns 401 if unauthenticated or insufficient role
+- Applied to all 7 handlers: evaluator, config-read, config-write, scheduler, forecast, check-health, manual-command
+- Critical security fix: prevents direct Function App access from bypassing SWA auth layer
+
+**CORS Restriction to Environment Variable:** CORS `Access-Control-Allow-Origin` changed from `*` to env-var-driven origin via `src/shared/cors.ts`.
+- Reads `AZURE_ALLOWED_ORIGINS` environment variable
+- Defaults to `http://localhost:4280` (dev only)
+- Production deployment requires setting `AZURE_ALLOWED_ORIGINS` to match SWA hostname (e.g., `https://<name>.azurestaticapps.net`)
+
+**Azure Maps Key Sanitization:** Added `redactKey()` sanitizer in `src/shared/weather.ts` to prevent plaintext key logging.
+- Immediate fix prevents key leakage through infrastructure logs
+- Deferred: Full fix (migrate to HTTP `Subscription-Key` header instead of query string)
+
 ## Frontend (Windows, 2026-04-17)
 
 **CSS Approach:** Plain global CSS in src/web/src/index.css with utility-style classes and component-specific class names (no Tailwind or CSS modules).
