@@ -18,3 +18,4 @@ Key patterns: dryRun flag (default true in dev), all secrets via Key Vault + Man
 - Created Azure Functions TypeScript backend files: package.json, tsconfig.json, host.json, local.settings.json.template, src/index.ts, src/functions/index.ts, src/shared/*, and all src/functions/* HTTP/timer handlers.
 - Stored lastDecision and systemHealth metadata as extra columns in SwitchStateTable to keep within the four-table schema.
 - Plan generation uses current weather snapshot and a base state with no debounce/override to produce schedule blocks.
+- TypeScript build verified clean (npm run build). All 8 function handlers compile correctly with @azure/functions v4 API. Timer trigger uses correct cron expression "0 */5 * * * *" (every 5 minutes). No hardcoded secrets detected in source code. All secrets properly fetched via Key Vault + Managed Identity pattern.

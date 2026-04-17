@@ -86,10 +86,8 @@ module functionApp 'modules/functionapp.bicep' = {
     identityId: identity.outputs.identityId
     identityClientId: identity.outputs.clientId
     storageConnectionString: storage.outputs.storageConnectionString
-    storageAccountName: storage.outputs.storageAccountName
     appInsightsConnectionString: appInsights.outputs.connectionString
     keyVaultUri: keyVault.outputs.keyVaultUri
-    keyVaultId: keyVault.outputs.keyVaultId
     iftttEventOn: iftttEventOn
     iftttEventOff: iftttEventOff
     dryRun: dryRun
@@ -104,6 +102,8 @@ module staticWebApp 'modules/staticwebapp.bicep' = {
   params: {
     prefix: prefix
     location: location
+    functionAppId: functionApp.outputs.functionAppId
+    functionAppRegion: location
   }
 }
 
@@ -112,9 +112,19 @@ module alerts 'modules/alerts.bicep' = {
   name: 'alerts-deployment'
   params: {
     appInsightsId: appInsights.outputs.appInsightsId
-    appInsightsName: appInsights.outputs.appInsightsName
     functionAppName: functionApp.outputs.functionAppName
     location: location
+  }
+}
+
+// Module: RBAC Assignments (subscription scope)
+module rbac 'modules/rbac.bicep' = {
+  name: 'rbac-deployment'
+  scope: subscription()
+  params: {
+    keyVaultId: keyVault.outputs.keyVaultId
+    storageAccountId: storage.outputs.storageAccountId
+    identityPrincipalId: functionApp.outputs.identityPrincipalId
   }
 }
 

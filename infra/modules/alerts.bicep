@@ -1,9 +1,6 @@
 @description('Application Insights resource ID')
 param appInsightsId string
 
-@description('Application Insights name')
-param appInsightsName string
-
 @description('Function App name for alert targeting')
 param functionAppName string
 
@@ -100,7 +97,7 @@ resource heartbeatMissingAlert 'Microsoft.Insights/scheduledQueryRules@2023-03-1
     criteria: {
       allOf: [
         {
-          query: 'customEvents | where name == "evaluation_cycle"'
+          query: 'traces | where message contains "evaluation_cycle"'
           timeAggregation: 'Count'
           operator: 'LessThan'
           threshold: 1

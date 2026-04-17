@@ -16,17 +16,11 @@ param identityClientId string
 @description('Storage connection string')
 param storageConnectionString string
 
-@description('Storage account name for RBAC assignments')
-param storageAccountName string
-
 @description('Application Insights connection string')
 param appInsightsConnectionString string
 
 @description('Key Vault URI')
 param keyVaultUri string
-
-@description('Key Vault ID for RBAC assignments')
-param keyVaultId string
 
 @description('IFTTT event name for ON')
 param iftttEventOn string
@@ -72,6 +66,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
   properties: {
     serverFarmId: appServicePlan.id
     httpsOnly: true
+    keyVaultReferenceIdentity: identityId
     siteConfig: {
       linuxFxVersion: 'Node|20'
       ftpsState: 'Disabled'
@@ -135,7 +130,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
         }
         {
           name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'
-          value: 'true'
+          value: 'false'
         }
         {
           name: 'AZURE_CLIENT_ID'
@@ -151,28 +146,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
   }
 }
 
-// RBAC: Key Vault Secrets User role for Managed Identity
-resource keyVaultSecretsUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(keyVaultId, identityId, 'KeyVaultSecretsUser')
-  scope: resourceId('Microsoft.KeyVault/vaults', split(keyVaultId, '/')[8])
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
-    principalId: reference(identityId, '2023-01-31').principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// RBAC: Storage Table Data Contributor role for Managed Identity
-resource storageTableDataContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccountName, identityId, 'StorageTableDataContributor')
-  scope: resourceId('Microsoft.Storage/storageAccounts', storageAccountName)
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3')
-    principalId: reference(identityId, '2023-01-31').principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
 output functionAppName string = functionApp.name
 output functionAppId string = functionApp.id
 output functionAppHostName string = functionApp.properties.defaultHostName
+output identityPrincipalId string = reference(identityId, '2023-01-31').principalId

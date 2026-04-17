@@ -54,4 +54,5 @@ resource eventLogTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2
 
 output storageAccountName string = storageAccount.name
 output storageAccountId string = storageAccount.id
+@secure()
 output storageConnectionString string = 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${listKeys(storageAccount.id, storageAccount.apiVersion).keys[0].value};EndpointSuffix=${environment().suffixes.storage}'

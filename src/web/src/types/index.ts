@@ -86,12 +86,9 @@ export interface UserInfo {
 }
 
 export interface SystemHealth {
-  lastEvaluation?: string | null;
-  lastEvaluationTime?: string | null;
-  lastWeatherFetch?: string | null;
-  lastWeatherFetchTime?: string | null;
-  alertStatus?: string | null;
-  alertMessage?: string | null;
+  lastEvaluationAt: string | null;
+  lastWeatherFetchAt: string | null;
+  alertStatus: 'ok' | 'warning' | 'error';
 }
 
 export interface StatusResponse {

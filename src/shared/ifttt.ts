@@ -1,6 +1,6 @@
 import { WebhookResult } from './types';
 
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 4; // 1 initial attempt + 3 retries
 const BASE_DELAY_MS = 1000;
 const TIMEOUT_MS = 10000;
 

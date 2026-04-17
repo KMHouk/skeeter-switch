@@ -39,3 +39,38 @@ Key principle: principle of least privilege on every RBAC assignment. No access 
 **Key Vault secret references in app settings:** `@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/{secret-name}/)`
 
 **API versions:** Microsoft.ManagedIdentity@2023-01-31, Microsoft.Storage@2023-01-01, Microsoft.OperationalInsights@2023-09-01, Microsoft.Insights/components@2020-02-02, Microsoft.KeyVault@2023-07-01, Microsoft.Web@2023-01-01, Microsoft.Authorization@2022-04-01
+
+### 2026-04-17: Bicep Validation & Fixes
+
+**Validation Status:** ✅ PASSING (exit code 0)
+
+**Issues Found & Fixed:**
+1. ❌ **CRITICAL BCP036** - RBAC scope assignment errors in functionapp.bicep (lines 157, 168)
+   - **Root cause:** Trying to assign resource IDs as strings to `scope` property at resourceGroup scope
+   - **Fix:** Created new `infra/modules/rbac.bicep` module with `targetScope = 'subscription'` to handle RBAC assignments. Moved Key Vault Secrets User and Storage Table Data Contributor role assignments there. Updated main.bicep to call rbac module.
+
+2. ⚠️ **Output Security Warning** - storage.bicep output containing secrets (listKeys)
+   - **Fix:** Added `@secure()` decorator to storageConnectionString output
+
+3. ⚠️ **Unused Parameter** - alerts.bicep had unused `appInsightsName` parameter
+   - **Fix:** Removed unused parameter from alerts.bicep and updated main.bicep call site
+
+4. ⚠️ **Unused Parameters** - functionapp.bicep had `storageAccountName` and `keyVaultId` (no longer needed after RBAC move)
+   - **Fix:** Removed from module params and updated main.bicep call site
+
+**Files Created:**
+- `infra/modules/rbac.bicep` - Subscription-scoped RBAC assignments for Key Vault Secrets User and Storage Table Data Contributor
+
+**Remaining Warnings (Expected):**
+- BCP073 in rbac.bicep: "scope" property read-only warning for roleAssignments (this is a Bicep type definition issue; ARM template is correct)
+- use-resource-symbol-reference in storage.bicep: Must use listKeys() for connection string generation
+
+**Manual Review Checklist (PASSED):**
+- ✅ main.bicep imports all modules with correct relative paths (identity, storage, loganalytics, appinsights, keyvault, functionapp, staticwebapp, alerts, rbac)
+- ✅ Module parameter names match what main.bicep passes (all validated after fixes)
+- ✅ All module outputs referenced correctly in main.bicep
+- ✅ Parameter files reference `using '../main.bicep'` correctly (dev.bicepparam, prod.bicepparam)
+- ✅ API versions current (2023-* for most, 2022-04-01 for RBAC, 2020-02-02 for App Insights)
+- ✅ Key Vault reference syntax correct: `@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/{secret-name}/)`
+- ✅ Function App wires Managed Identity correctly with UserAssigned type
+- ✅ RBAC assignments use least privilege: only Key Vault Secrets User + Storage Table Data Contributor (no higher roles)

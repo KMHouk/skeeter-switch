@@ -3,7 +3,14 @@ name: Deploy Azure Functions
 on:
   push:
     branches: [main]
-    paths: ['src/functions/**']
+    paths:
+      - 'src/functions/**'
+      - 'src/shared/**'
+      - 'src/index.ts'
+      - 'host.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
   workflow_dispatch:
     inputs:
       environment:
@@ -27,20 +34,15 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: src/functions/package-lock.json
       - name: Install dependencies
         run: npm ci
-        working-directory: src/functions
       - name: Build TypeScript
         run: npm run build
-        working-directory: src/functions
       - name: Package for deployment
         run: |
-          cd src/functions
-          zip -r ../../functions-package.zip . -x "node_modules/*" "src/*" "*.ts" ".git/*"
-          # Include dist/ and production node_modules
+          zip -r functions-package.zip dist/ host.json package.json
           npm ci --omit=dev
-          zip -r ../../functions-package.zip node_modules/
+          zip -r functions-package.zip node_modules/
       - uses: actions/upload-artifact@v4
         with:
           name: functions-package

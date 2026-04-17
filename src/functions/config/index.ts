@@ -95,14 +95,14 @@ app.http('config', {
     if (req.method === 'OPTIONS') {
       return { status: 204, headers: corsHeaders };
     }
-    if (!hasAdminRole(req)) {
-      return { status: 403, jsonBody: { error: 'Forbidden' }, headers: corsHeaders };
-    }
     const timestamp = new Date().toISOString();
     try {
       if (req.method === 'GET') {
         const config = await getConfig();
         return { status: 200, jsonBody: config, headers: corsHeaders };
+      }
+      if (!hasAdminRole(req)) {
+        return { status: 403, jsonBody: { error: 'Forbidden' }, headers: corsHeaders };
       }
       const body = (await req.json()) as Record<string, unknown>;
       const update = parseConfigUpdate(body);
