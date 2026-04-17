@@ -14,3 +14,7 @@ Key patterns: dryRun flag (default true in dev), all secrets via Key Vault + Man
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+### 2026-04-17
+- Created Azure Functions TypeScript backend files: package.json, tsconfig.json, host.json, local.settings.json.template, src/index.ts, src/functions/index.ts, src/shared/*, and all src/functions/* HTTP/timer handlers.
+- Stored lastDecision and systemHealth metadata as extra columns in SwitchStateTable to keep within the four-table schema.
+- Plan generation uses current weather snapshot and a base state with no debounce/override to produce schedule blocks.

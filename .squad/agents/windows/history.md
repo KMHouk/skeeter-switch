@@ -14,3 +14,4 @@ Key: no `any` types, all API calls through typed client, calendar recomputes whe
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+- Built full frontend in src/web: package.json, tsconfig.json, vite.config.ts, index.html, staticwebapp.config.json, src/main.tsx, src/App.tsx, src/index.css, src/types, src/api/client.ts, hooks (useAuth/useStatus/useCalendar), components (StatusCard, DecisionPanel, WeatherPanel, CalendarView, ManualControls, DryRunBanner, ActivityLog, SystemHealth, ConfigEditor). Component hierarchy: App → DryRunBanner + (StatusCard/DecisionPanel) + (WeatherPanel/SystemHealth) + CalendarView + ManualControls + ActivityLog + ConfigEditor.

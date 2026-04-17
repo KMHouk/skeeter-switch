@@ -1,0 +1,64 @@
+name: Deploy Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options: [dev, prod]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Bicep
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Validate Bicep
+        run: |
+          az deployment group validate \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --template-file infra/main.bicep \
+            --parameters infra/parameters/${{ inputs.environment }}.bicepparam
+
+  deploy:
+    name: Deploy Infrastructure
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy Bicep
+        id: deploy
+        run: |
+          az deployment group create \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --template-file infra/main.bicep \
+            --parameters infra/parameters/${{ inputs.environment }}.bicepparam \
+            --query "properties.outputs" \
+            --output json > deployment-outputs.json
+          cat deployment-outputs.json
+      - name: Set Key Vault secrets
+        run: |
+          KEYVAULT_NAME=$(cat deployment-outputs.json | jq -r '.keyVaultName.value')
+          echo "Key Vault: $KEYVAULT_NAME"
+          echo "Note: Manually add IFTTT key and Azure Maps key to Key Vault:"
+          echo "  az keyvault secret set --vault-name $KEYVAULT_NAME --name ifttt-key --value <YOUR_KEY>"
+          echo "  az keyvault secret set --vault-name $KEYVAULT_NAME --name azure-maps-subscription-key --value <YOUR_KEY>"

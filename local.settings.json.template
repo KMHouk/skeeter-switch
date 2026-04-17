@@ -1,0 +1,17 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "APPLICATIONINSIGHTS_CONNECTION_STRING": "",
+    "KEY_VAULT_URI": "",
+    "TABLE_STORAGE_CONNECTION_STRING": "UseDevelopmentStorage=true",
+    "AZURE_MAPS_SUBSCRIPTION_KEY": "DEV_ONLY_use_keyvault_in_prod",
+    "IFTTT_KEY": "DEV_ONLY_use_keyvault_in_prod",
+    "IFTTT_EVENT_ON": "skeeter_switch_on",
+    "IFTTT_EVENT_OFF": "skeeter_switch_off",
+    "DRY_RUN": "true",
+    "LOCATION_LAT": "40.7128",
+    "LOCATION_LON": "-74.0060"
+  }
+}

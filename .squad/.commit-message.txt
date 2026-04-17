@@ -1,0 +1,14 @@
+docs: Squad orchestration — full initial build complete
+
+Complete squad-based team build for skeeter-switch:
+- MacReady: Core architecture, README, types, directory structure
+- Bennings: 8 Azure Functions modules + 8 handlers, full TS build passing
+- Blair: Bicep infrastructure (8 modules), dev/prod parameters, RBAC + Managed Identity
+- Windows: React web app (8 components + hooks), Vite build, SWA auth integration
+- Childs: GitHub Actions CI/CD (3 workflows), OIDC federation, environment separation
+
+Generated 5 orchestration logs, session summary, merged all architectural decisions into decisions.md, updated team focus state. All domains ready for review, test, and secrets integration.
+
+Files: ~60+, Infrastructure modules: 8, Functions: 8, Components: 8.
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
