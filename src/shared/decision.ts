@@ -49,6 +49,9 @@ export function evaluateDecision(
       ? `Within run window ${config.runWindowStart}-${config.runWindowEnd} (${config.timezone}).`
       : `Outside run window ${config.runWindowStart}-${config.runWindowEnd} (${config.timezone}).`
   );
+  if (weather.currentlyRaining) {
+    reasons.push('Currently raining — device is not weatherproof (hard stop).');
+  }
   reasons.push(
     weatherOk
       ? `Weather OK: no rain, precip ${weather.precipProbability}%, wind ${weather.windSpeedMph.toFixed(
