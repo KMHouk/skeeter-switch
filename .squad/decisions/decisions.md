@@ -192,3 +192,60 @@ Resource Group (main.bicep scope)
 
 **Note:** Critical and warning findings are tracked separately for triage and remediation scheduling. Arlington threshold implementation above does not address these systemic issues but is compatible with their eventual resolution.
 
+---
+
+## 7. Deployment Runbook & Gotchas — Blair
+
+**Author:** Blair  
+**Date:** 2026-04-17  
+**Deliverable:** `DEPLOY.md` (repo root)  
+**Status:** ✅ COMPLETE
+
+### Phase Summary
+
+9-phase deployment procedure:
+1. Pre-Deploy Validation & Checklist
+2. Azure Infrastructure (Bicep) Provisioning
+3. GitHub Secrets & OIDC Configuration
+4. Key Vault Post-Deploy Secret Setup
+5. Function App Deployment
+6. SWA Frontend Deployment
+7. SWA Entra/CORS Configuration
+8. Post-Deploy Smoke Tests
+9. Cutover & Monitoring Setup
+
+### Critical Gotchas
+
+#### 1. TENANT_ID Placeholder Not Auto-Resolved ⚠️
+**File:** `src/web/staticwebapp.config.json`  
+**Issue:** Contains literal string `{TENANT_ID}` in Entra issuer URL. SWA does not auto-substitute via environment variables.  
+**Solution:** Add CI substitution step (sed/PowerShell) in `swa-deploy.yml` to replace `{TENANT_ID}` using `AZURE_TENANT_ID` secret before deployment. Avoids storing tenant ID in source control.
+
+#### 2. AZURE_CLIENT_ID Name Collision ⚠️
+**Context Mismatch:**
+- **GitHub Secret `AZURE_CLIENT_ID`** = `skeeter-switch-github-actions` SP App ID (for OIDC token exchange)
+- **SWA App Setting `AZURE_CLIENT_ID`** = `skeeter-switch` Entra app registration client ID (for end-user browser auth)
+
+These are **different values**. Runbook explicitly maps both to prevent configuration errors.
+
+#### 3. AZURE_ALLOWED_ORIGINS Not Managed by Bicep ⚠️
+**File:** `src/shared/cors.ts` (reads setting) vs. `infra/modules/functionapp.bicep` (does not define)  
+**Issue:** CORS allowed origins set based on SWA hostname, which only exists after infrastructure is deployed. Cannot be hardcoded pre-deploy.  
+**Solution:** Manual post-deploy step OR extend `functionapp.bicep` in future iteration to accept origin parameter.
+
+#### 4. rbac.bicep Subscription-Scope May Require SP Escalation ⚠️
+**File:** `infra/modules/rbac.bicep` (uses `targetScope = 'subscription'`)  
+**Issue:** Deploying subscription-scoped module from resource-group template requires SP permission to create `Microsoft.Resources/deployments` at subscription scope. Current OIDC-SETUP permissions (User Access Administrator at RG) may be insufficient.  
+**Mitigation:** Runbook includes escalation command; validate SP permissions before Phase 2 production run.
+
+#### 5. Key Vault Placeholder Secrets ⚠️
+**Files:** `infra/modules/keyvault.bicep`  
+**Issue:** `ifttt-key` and `azure-maps-subscription-key` initialized with value `PLACEHOLDER-UPDATE-AFTER-DEPLOYMENT`. Function App starts but webhooks and weather API calls fail until updated.  
+**Handling:** Explicit Phase 4 step with manual update commands provided.
+
+#### 6. dryRun=false in Prod Intentional ✓
+`infra/parameters/prod.bicepparam` sets `dryRun = false`. This is correct — production should fire real IFTTT webhooks. Runbook explicitly flags for Kevin confirmation.
+
+#### 7. SWA Deployment Token Sequencing ✓
+`AZURE_STATIC_WEB_APPS_API_TOKEN` only exists after SWA resource created by Bicep. Runbook correctly sequences Phase 3 (infra) → Phase 5.4 (SWA deploy) to obtain token from infra outputs.
+
