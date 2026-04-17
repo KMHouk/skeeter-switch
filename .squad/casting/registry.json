@@ -72,6 +72,14 @@
       "created_at": "2026-04-17T18:28:00Z",
       "legacy_named": false,
       "status": "active"
+    },
+    {
+      "persistent_name": "Fuchs",
+      "universe": "The Thing (1982)",
+      "role": "ARCTIC® MKS Hardware & Systems Expert",
+      "created_at": "2026-04-17T18:39:00Z",
+      "legacy_named": false,
+      "status": "active"
     }
   ]
 }

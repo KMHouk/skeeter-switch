@@ -19,6 +19,7 @@
 | Childs | 🔒 DevOps & Security | .squad/agents/childs/charter.md | active |
 | Norris | 🦟 Mosquito & Entomology Expert | .squad/agents/norris/charter.md | active |
 | Copper | 🔒 Security Engineer | .squad/agents/copper/charter.md | active |
+| Fuchs | 🔬 ARCTIC® MKS Hardware Expert | .squad/agents/fuchs/charter.md | active |
 | Scribe | 📋 Session Logger | .squad/agents/scribe/charter.md | active |
 | Ralph | 🔄 Work Monitor | .squad/agents/ralph/charter.md | active |
 

@@ -24,6 +24,9 @@ How to decide who handles what.
 | AppSec review, auth flow audit, OWASP | Copper | "Security review the API", "Check for injection vulnerabilities", "Audit the auth flow" |
 | Secrets hygiene, CORS policy, dependency CVEs | Copper | "Check for leaked secrets", "Review CORS config", "Run a dependency audit" |
 | GitHub Actions security, OIDC token scopes | Copper | "Review CI security", "Check Actions permissions" |
+| ARCTIC® MKS hardware questions, device specs, operating constraints | Fuchs | "What are the rain limits?", "Is power cycling safe?", "What coverage does it have?" |
+| Device-hardware validation of decision logic | Fuchs | "Is the debounce interval safe for this device?", "Can we power cycle this thing every 10 minutes?" |
+| IFTTT/Kasa/hardware integration questions | Fuchs | "Will switching power work for this device type?", "Any startup delay after power-on?" |
 | Session logging | Scribe | Automatic — never needs routing |
 | Work queue monitoring | Ralph | "Ralph, go", "Ralph, status", "keep working" |
 
