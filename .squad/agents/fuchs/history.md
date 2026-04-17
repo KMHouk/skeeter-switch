@@ -87,3 +87,6 @@ Completed initial deep-dive on ARCTIC® MKS hardware. Key findings for skeeter-s
 3. Rain exclusion is non-negotiable — the device has no weatherproofing beyond its aluminum shell
 4. CO2 tank is the most important maintenance item — empty tank = trap running at ~30–40% effectiveness at best
 5. The 18:00–06:00 run window is excellent — provides warm-up time before photocell triggers at dusk, and covers full dawn window
+
+### 2026-04-17 — Temperature floor confirmed (Bennings implementation)
+Bennings implemented 50°F temperature floor gate in decision engine. Confirmed CROSS-ALIGNMENT: the 50°F hardware operating floor (ARCTIC MKS spec) exactly matches the 50°F mosquito dormancy threshold (entomology baseline per Norris analysis). This is optimal — temperature gate suppresses trap during off-season nights (April, October) when mosquitoes are inactive AND when operating below hardware spec would stress equipment. No conflicts; no unnecessary redundancy. Implementation complete & validated in commit c43d88b.
