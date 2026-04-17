@@ -13,6 +13,22 @@ Key patterns: dryRun flag (default true in dev), all secrets via Key Vault + Man
 
 ## Learnings
 
+### 2026-04-17 (session 4 — unit tests for decision engine)
+
+- **Framework:** Jest 29 + ts-jest 29 (Jest 30 was the default npm install but is not yet compatible with ts-jest 29; pinned to Jest 29).
+- **Config:** `jest.config.js` at repo root using `preset: 'ts-jest'`; `tsconfig.json` include extended with `src/__tests__/**/*`.
+- **Test file:** `src/__tests__/decision.test.ts` — 34 tests, all passing.
+- **Fixture helpers:** `makeConfig(overrides?)`, `makeWeather(overrides?)`, `makeState(overrides?)` defined at top of test file. `makeConfig` wraps `getDefaultConfig()` (exported from config.ts) and forces `dryRun: false`.
+- **Timezone tests:** January 15 2025 (EST = UTC-5) used as base date. UTC strings computed manually (`ET+5h → UTC`) so tests are deterministic and DST-free.
+- **Key boundary findings (no bugs, all correct in decision.ts):**
+  - Time window `endMinutes` is **exclusive** (`nowMinutes < endMinutes`), so 08:00 ET is outside the window.
+  - `precipProbability` check is `< threshold` (strict less-than), so 35% blocks the device.
+  - `windSpeedMph` check is `< threshold` (strict less-than), so 12 mph blocks the device.
+  - `debounceMinutes` check is `>= debounceMinutes`, so exactly 15 min ago passes.
+  - Override `expiresAt === now` is **not** active (`> now` is strict).
+- **No bugs found** in `decision.ts` — all logic matched expected semantics.
+- **Test coverage groups:** override (4), rain (2), temperature (3), time window (7), precip (3), wind (3), debounce (4), compound/happy path (5), reasons[] (3).
+
 ### 2026-04-17 (session 3 — Norris threshold implementation)
 - Run window expanded to 16:00–08:00 to capture both Aedes albopictus (dawn/dusk biter, peaks 16:00–18:00 and 05:00–08:00) and Culex pipiens (nocturnal, active 18:00–06:00).
 - Temperature floor (50°F) added to WeatherConditions type as `temperatureF: number`. Azure Maps currentConditions returns temperature in Celsius by default (metric); convert to °F with `(c * 9/5) + 32`. Graceful fallback: if `temperature.value` is absent, default to 60°F and `console.warn` — never hard-fail on missing weather data.
