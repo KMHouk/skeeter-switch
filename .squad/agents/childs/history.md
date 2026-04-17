@@ -15,6 +15,26 @@ Key: OIDC only, minimum `permissions` on every workflow, validate-before-deploy 
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-04-17: GitHub Actions SHA Pinning + Permissions Audit
+
+**Task:** Pin all GitHub Actions `uses:` references to immutable SHA hashes (supply chain hardening per Copper's security audit).
+
+**Actions pinned:**
+- `actions/checkout@v4` → `@11bd71901bbe5b1630ceea73d27597364c9af683` (v4.2.2) — in all 3 workflows
+- `actions/setup-node@v4` → `@39370e3970a6d050c480ffad4ff0ed4d3fdee5af` (v4.1.0) — functions-deploy, swa-deploy
+- `azure/login@v2` → `@6c251865b4e6290e7b78be643ea2d005702d2035` (v2.1.0) — all 3 workflows (4 occurrences)
+- `Azure/static-web-apps-deploy@v1` → `@1a947af9992250f3bc2e68ad0754c0b0c11566c9` (v1.5.0) — swa-deploy
+
+**TODOs added (SHA unknown at time of pinning):**
+- `actions/upload-artifact@v4` — needs SHA, see https://github.com/actions/upload-artifact/releases
+- `actions/download-artifact@v4` (×2) — needs SHA, see https://github.com/actions/download-artifact/releases
+
+**Permissions audit result:** All three workflows already had correct minimum-privilege blocks (`id-token: write, contents: read`). No changes needed.
+
+**Supply chain scan:** No `curl | bash` patterns. All secrets use `${{ secrets.* }}` context. No untrusted input (issue/PR titles) injected into `run:` steps. Environment inputs constrained to `[dev, prod]` via `type: choice`.
+
+**Commit:** `090cd2f` — `security: pin GitHub Actions to SHA hashes + audit permissions`
+
 ### 2026-04-17: GitHub Actions Workflows Created
 
 **Files created:**
