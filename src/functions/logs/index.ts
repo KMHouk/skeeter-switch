@@ -1,11 +1,9 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
+import { isAuthError, requireAuth } from '../../shared/auth';
+import { getCorsHeaders } from '../../shared/cors';
 import { getRecentLogs } from '../../shared/storage';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-};
+const corsHeaders = getCorsHeaders('GET,OPTIONS');
 
 app.http('logs', {
   methods: ['GET', 'OPTIONS'],
@@ -15,6 +13,8 @@ app.http('logs', {
     if (req.method === 'OPTIONS') {
       return { status: 204, headers: corsHeaders };
     }
+    const authResult = requireAuth(req, corsHeaders);
+    if (isAuthError(authResult)) return authResult;
     try {
       const limitParam = req.query.get('limit');
       const parsedLimit = limitParam ? Number(limitParam) : 50;

@@ -1,15 +1,13 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { differenceInMinutes, parseISO } from 'date-fns';
+import { isAuthError, requireAuth } from '../../shared/auth';
+import { getCorsHeaders } from '../../shared/cors';
 import { callWebhook } from '../../shared/ifttt';
 import { getIftttKey } from '../../shared/keyvault';
 import { getConfig, getState, logEvent, updateState } from '../../shared/storage';
 import { PowerState, WebhookResult } from '../../shared/types';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-};
+const corsHeaders = getCorsHeaders('POST,OPTIONS');
 
 function isPowerState(value: string): value is PowerState {
   return value === 'on' || value === 'off';
@@ -33,6 +31,8 @@ app.http('command', {
     if (req.method === 'OPTIONS') {
       return { status: 204, headers: corsHeaders };
     }
+    const authResult = requireAuth(req, corsHeaders);
+    if (isAuthError(authResult)) return authResult;
     const timestamp = new Date().toISOString();
     try {
       const body = (await req.json()) as { state?: string };

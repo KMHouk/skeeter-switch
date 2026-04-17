@@ -1,12 +1,10 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
+import { isAuthError, requireAuth } from '../../shared/auth';
+import { getCorsHeaders } from '../../shared/cors';
 import { getLastDecision, getState, getSystemHealth } from '../../shared/storage';
 import { StatusResponse } from '../../shared/types';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-};
+const corsHeaders = getCorsHeaders('GET,OPTIONS');
 
 app.http('status', {
   methods: ['GET', 'OPTIONS'],
@@ -16,6 +14,8 @@ app.http('status', {
     if (req.method === 'OPTIONS') {
       return { status: 204, headers: corsHeaders };
     }
+    const authResult = requireAuth(req, corsHeaders);
+    if (isAuthError(authResult)) return authResult;
     try {
       const [state, lastDecision, systemHealth] = await Promise.all([
         getState(),

@@ -1,15 +1,13 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { addHours, differenceInCalendarDays, isValid, parseISO } from 'date-fns';
+import { isAuthError, requireAuth } from '../../shared/auth';
+import { getCorsHeaders } from '../../shared/cors';
 import { evaluateDecision } from '../../shared/decision';
 import { fetchWeather } from '../../shared/weather';
 import { getConfig } from '../../shared/storage';
 import { PlanBlock, PlanResponse, SwitchState } from '../../shared/types';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-};
+const corsHeaders = getCorsHeaders('GET,OPTIONS');
 
 const MAX_DAYS = 14;
 
@@ -32,6 +30,8 @@ app.http('plan', {
     if (req.method === 'OPTIONS') {
       return { status: 204, headers: corsHeaders };
     }
+    const authResult = requireAuth(req, corsHeaders);
+    if (isAuthError(authResult)) return authResult;
     try {
       const fromParam = req.query.get('from');
       const toParam = req.query.get('to');

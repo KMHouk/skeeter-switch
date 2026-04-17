@@ -22,6 +22,10 @@ const CACHE_MS = 10 * 60 * 1000;
 let cachedWeather: WeatherConditions | null = null;
 let cachedAt: number | null = null;
 
+function redactKey(url: string): string {
+  return url.replace(/([?&]subscription-key=)[^&]+/, '$1[REDACTED]');
+}
+
 function isCacheValid(): boolean {
   if (!cachedWeather || cachedAt === null) {
     return false;
@@ -82,9 +86,11 @@ export async function fetchWeather(config: AppConfig): Promise<WeatherConditions
 
   const [currentResponse, hourlyResponse] = await Promise.all([fetch(currentUrl), fetch(hourlyUrl)]);
   if (!currentResponse.ok) {
+    console.error(JSON.stringify({ event: 'weather_fetch_error', url: redactKey(currentUrl), status: currentResponse.status }));
     throw new Error(`Azure Maps current conditions failed (${currentResponse.status})`);
   }
   if (!hourlyResponse.ok) {
+    console.error(JSON.stringify({ event: 'weather_fetch_error', url: redactKey(hourlyUrl), status: hourlyResponse.status }));
     throw new Error(`Azure Maps hourly forecast failed (${hourlyResponse.status})`);
   }
 

@@ -1,12 +1,10 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
+import { isAuthError, requireAuth } from '../../shared/auth';
+import { getCorsHeaders } from '../../shared/cors';
 import { clearOverride, logEvent, setOverride } from '../../shared/storage';
 import { OverrideRecord, OverrideState } from '../../shared/types';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-};
+const corsHeaders = getCorsHeaders('POST,OPTIONS');
 
 function isOverrideState(value: string): value is OverrideState {
   return value === 'on' || value === 'off' || value === 'auto';
@@ -20,6 +18,8 @@ app.http('override', {
     if (req.method === 'OPTIONS') {
       return { status: 204, headers: corsHeaders };
     }
+    const authResult = requireAuth(req, corsHeaders);
+    if (isAuthError(authResult)) return authResult;
     const timestamp = new Date().toISOString();
     try {
       const body = (await req.json()) as { state?: string; ttlMinutes?: number };

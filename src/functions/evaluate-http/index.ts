@@ -1,11 +1,9 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
+import { isAuthError, requireAuth } from '../../shared/auth';
+import { getCorsHeaders } from '../../shared/cors';
 import { runEvaluationCycle } from '../../shared/evaluation';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-};
+const corsHeaders = getCorsHeaders('POST,OPTIONS');
 
 app.http('evaluate-http', {
   methods: ['POST', 'OPTIONS'],
@@ -15,6 +13,8 @@ app.http('evaluate-http', {
     if (req.method === 'OPTIONS') {
       return { status: 204, headers: corsHeaders };
     }
+    const authResult = requireAuth(req, corsHeaders);
+    if (isAuthError(authResult)) return authResult;
     try {
       const { decision } = await runEvaluationCycle('http');
       return { status: 200, jsonBody: decision, headers: corsHeaders };

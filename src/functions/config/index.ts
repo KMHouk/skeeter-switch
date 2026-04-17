@@ -1,25 +1,10 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
+import { isAuthError, requireAdmin, requireAuth } from '../../shared/auth';
+import { getCorsHeaders } from '../../shared/cors';
 import { getConfig, logEvent, updateConfig } from '../../shared/storage';
 import { AppConfig } from '../../shared/types';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET,PUT,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-};
-
-function hasAdminRole(req: HttpRequest): boolean {
-  const rolesHeader = req.headers.get('x-ms-client-principal');
-  if (!rolesHeader) return false;
-  try {
-    const principal = JSON.parse(Buffer.from(rolesHeader, 'base64').toString('utf8')) as {
-      userRoles?: string[];
-    };
-    return (principal.userRoles || []).includes('admin');
-  } catch {
-    return false;
-  }
-}
+const corsHeaders = getCorsHeaders('GET,PUT,OPTIONS');
 
 function isTimeString(value: unknown): value is string {
   return typeof value === 'string' && /^\d{2}:\d{2}$/.test(value);
@@ -98,12 +83,13 @@ app.http('config', {
     const timestamp = new Date().toISOString();
     try {
       if (req.method === 'GET') {
+        const authResult = requireAuth(req, corsHeaders);
+        if (isAuthError(authResult)) return authResult;
         const config = await getConfig();
         return { status: 200, jsonBody: config, headers: corsHeaders };
       }
-      if (!hasAdminRole(req)) {
-        return { status: 403, jsonBody: { error: 'Forbidden' }, headers: corsHeaders };
-      }
+      const adminResult = requireAdmin(req, corsHeaders);
+      if (isAuthError(adminResult)) return adminResult;
       const body = (await req.json()) as Record<string, unknown>;
       const update = parseConfigUpdate(body);
       if (typeof update === 'string') {
