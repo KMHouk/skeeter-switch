@@ -40,6 +40,29 @@ Key principle: principle of least privilege on every RBAC assignment. No access 
 
 **API versions:** Microsoft.ManagedIdentity@2023-01-31, Microsoft.Storage@2023-01-01, Microsoft.OperationalInsights@2023-09-01, Microsoft.Insights/components@2020-02-02, Microsoft.KeyVault@2023-07-01, Microsoft.Web@2023-01-01, Microsoft.Authorization@2022-04-01
 
+### 2026-04-17: Deployment Runbook Written (DEPLOY.md)
+
+**File created:** `DEPLOY.md` — 9-phase sequential deployment runbook for Kevin
+
+**Phases covered:**
+1. Azure Prerequisites (resource groups, provider registration)
+2. GitHub OIDC Setup (app registration, federated credentials, RBAC, environments, secrets)
+3. Bicep infrastructure deploy via `infra-deploy.yml` + output capture
+4. Key Vault secret injection (`ifttt-key`, `azure-maps-subscription-key`)
+5. SWA Entra auth setup (separate app registration + `{TENANT_ID}` placeholder fix + SWA app settings)
+6. Function + SWA code deploy + `AZURE_ALLOWED_ORIGINS` configuration
+7. Post-deploy verification (smoke tests, auth flow, App Insights)
+8. IFTTT applet creation (`skeeter_switch_on`, `skeeter_switch_off`)
+9. Conditional Access MFA policy
+
+**Gotchas documented:**
+- `rbac.bicep` runs at subscription scope — deploying SP needs User Access Administrator (escalate to subscription scope if RG scope isn't enough)
+- `{TENANT_ID}` in `staticwebapp.config.json` is a literal placeholder — NOT auto-substituted by Azure; must be replaced before SWA deploy or configured via portal
+- `AZURE_CLIENT_ID` means different things in two contexts: GitHub env secret (= skeeter-switch-github-actions SP) vs SWA app setting (= skeeter-switch Entra app for auth)
+- `AZURE_ALLOWED_ORIGINS` is not in Bicep — must be set manually post-deploy to the SWA hostname
+- `dryRun=false` in prod.bicepparam is correct and intentional
+- `AZURE_FUNCTION_APP_NAME` and `AZURE_STATIC_WEB_APPS_API_TOKEN` GitHub secrets can only be set AFTER infra deploys
+
 ### 2026-04-17: Bicep Validation & Fixes
 
 **Validation Status:** ✅ PASSING (exit code 0)
