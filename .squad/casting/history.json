@@ -1,0 +1,18 @@
+{
+  "history_version": "1.0",
+  "assignments": [
+    {
+      "assignment_id": "skeeter-switch-2026-04-17",
+      "project": "skeeter-switch",
+      "universe": "The Thing (1982)",
+      "created_at": "2026-04-17T17:39:25Z",
+      "agents": [
+        { "name": "MacReady", "role": "Lead & Architect" },
+        { "name": "Bennings", "role": "Cloud Backend Dev" },
+        { "name": "Blair", "role": "Infrastructure & IaC" },
+        { "name": "Windows", "role": "Frontend Dev" },
+        { "name": "Childs", "role": "DevOps & Security" }
+      ]
+    }
+  ]
+}
