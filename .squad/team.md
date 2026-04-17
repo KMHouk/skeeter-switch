@@ -17,6 +17,8 @@
 | Blair | ⚙️ Infrastructure & IaC | .squad/agents/blair/charter.md | active |
 | Windows | ⚛️ Frontend Dev | .squad/agents/windows/charter.md | active |
 | Childs | 🔒 DevOps & Security | .squad/agents/childs/charter.md | active |
+| Norris | 🦟 Mosquito & Entomology Expert | .squad/agents/norris/charter.md | active |
+| Copper | 🔒 Security Engineer | .squad/agents/copper/charter.md | active |
 | Scribe | 📋 Session Logger | .squad/agents/scribe/charter.md | active |
 | Ralph | 🔄 Work Monitor | .squad/agents/ralph/charter.md | active |
 

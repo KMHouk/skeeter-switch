@@ -19,6 +19,11 @@ How to decide who handles what.
 | GitHub Actions workflows, OIDC | Childs | "Write infra deploy workflow", "Set up OIDC federation" |
 | Entra ID setup, Conditional Access docs | Childs | "Document MFA Conditional Access steps", "App registration notes" |
 | Security review, secret handling | Childs | "Review for leaked secrets", "Verify RBAC assignments" |
+| Mosquito activity thresholds, entomological validation | Norris | "Are these weather thresholds right?", "When do mosquitoes actually bite?", "Review the decision logic" |
+| Seasonal/geographic tuning, run window validation | Norris | "Tune for spring emergence", "Is 18:00–06:00 right for NY?" |
+| AppSec review, auth flow audit, OWASP | Copper | "Security review the API", "Check for injection vulnerabilities", "Audit the auth flow" |
+| Secrets hygiene, CORS policy, dependency CVEs | Copper | "Check for leaked secrets", "Review CORS config", "Run a dependency audit" |
+| GitHub Actions security, OIDC token scopes | Copper | "Review CI security", "Check Actions permissions" |
 | Session logging | Scribe | Automatic — never needs routing |
 | Work queue monitoring | Ralph | "Ralph, go", "Ralph, status", "keep working" |
 
