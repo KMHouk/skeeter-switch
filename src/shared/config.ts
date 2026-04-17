@@ -1,11 +1,12 @@
 import { AppConfig } from './types';
 
 const DEFAULT_CONFIG: AppConfig = {
-  runWindowStart: '18:00',
-  runWindowEnd: '06:00',
+  runWindowStart: '16:00',
+  runWindowEnd: '08:00',
   timezone: 'America/New_York',
-  precipProbThreshold: 30,
+  precipProbThreshold: 35,
   windSpeedThreshold: 12,
+  temperatureFloorF: 50,
   debounceMinutes: 15,
   pollIntervalMinutes: 5,
   location: {

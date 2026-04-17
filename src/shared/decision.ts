@@ -27,6 +27,7 @@ export function evaluateDecision(
 
   const weatherOk =
     !weather.currentlyRaining &&
+    weather.temperatureF >= config.temperatureFloorF &&
     weather.precipProbability < config.precipProbThreshold &&
     weather.windSpeedMph < config.windSpeedThreshold;
 
@@ -51,6 +52,11 @@ export function evaluateDecision(
   );
   if (weather.currentlyRaining) {
     reasons.push('Currently raining — device is not weatherproof (hard stop).');
+  }
+  if (weather.temperatureF < config.temperatureFloorF) {
+    reasons.push(
+      `Temperature ${weather.temperatureF.toFixed(1)}°F below floor ${config.temperatureFloorF}°F — mosquitoes dormant, device skipped.`
+    );
   }
   reasons.push(
     weatherOk

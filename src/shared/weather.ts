@@ -6,6 +6,7 @@ interface AzureMapsCurrentResponse {
     precipitationType?: string;
     iconCode?: number;
     windSpeed?: { value?: number; unit?: string };
+    temperature?: { value?: number; unit?: string };
     phrase?: string;
     shortPhrase?: string;
   }>;
@@ -31,6 +32,7 @@ function isCacheValid(): boolean {
 function mapCurrentConditions(data: AzureMapsCurrentResponse): {
   currentlyRaining: boolean;
   windSpeedMph: number;
+  temperatureF: number;
   description: string;
 } {
   const current = data.results?.[0];
@@ -46,9 +48,20 @@ function mapCurrentConditions(data: AzureMapsCurrentResponse): {
   const windSpeedKmh = current.windSpeed?.value ?? 0;
   const windSpeedMph = windSpeedKmh * 0.621371;
   const description = current.phrase || current.shortPhrase || 'Unknown';
+
+  // Azure Maps returns temperature in Celsius by default (metric). Convert to °F.
+  let temperatureF: number;
+  if (current.temperature?.value !== undefined && current.temperature.value !== null) {
+    temperatureF = (current.temperature.value * 9) / 5 + 32;
+  } else {
+    console.warn('Azure Maps temperature unavailable; defaulting to 60°F (safe fallback)');
+    temperatureF = 60;
+  }
+
   return {
     currentlyRaining: rainingByType || rainingByIcon,
     windSpeedMph,
+    temperatureF,
     description,
   };
 }
@@ -84,6 +97,7 @@ export async function fetchWeather(config: AppConfig): Promise<WeatherConditions
     currentlyRaining: mappedCurrent.currentlyRaining,
     precipProbability,
     windSpeedMph: mappedCurrent.windSpeedMph,
+    temperatureF: mappedCurrent.temperatureF,
     description: mappedCurrent.description,
     fetchedAt: new Date().toISOString(),
   };
