@@ -88,17 +88,25 @@ module functionApp 'modules/functionapp.bicep' = {
     dryRun: dryRun
     locationLat: locationLat
     locationLon: locationLon
+    staticWebAppHostname: staticWebApp.outputs.defaultHostname
   }
 }
 
-// Module: Static Web App
+// Module: Static Web App (created before Function App to provide hostname for CORS)
 module staticWebApp 'modules/staticwebapp.bicep' = {
   name: 'staticwebapp-deployment'
   params: {
     prefix: prefix
     location: location
-    functionAppId: functionApp.outputs.functionAppId
-    functionAppRegion: location
+  }
+}
+
+// Link the SWA to the Function App backend (after both are created)
+resource linkedBackend 'Microsoft.Web/staticSites/linkedBackends@2022-09-01' = {
+  name: '${prefix}-swa/backend'
+  properties: {
+    backendResourceId: functionApp.outputs.functionAppId
+    region: location
   }
 }
 

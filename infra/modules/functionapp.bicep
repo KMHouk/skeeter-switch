@@ -34,6 +34,9 @@ param locationLat string
 @description('Location longitude')
 param locationLon string
 
+@description('Static Web App default hostname (for CORS)')
+param staticWebAppHostname string
+
 var functionAppName = '${prefix}-func-${uniqueSuffix}'
 var appServicePlanName = '${prefix}-plan'
 
@@ -141,6 +144,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
       cors: {
         allowedOrigins: [
           'https://portal.azure.com'
+          'https://${staticWebAppHostname}'
         ]
       }
     }
