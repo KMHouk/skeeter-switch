@@ -27,14 +27,17 @@ export const useCalendar = (range?: DateRange, config?: AppConfig | null): UseCa
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const activeRange = useMemo(() => range ?? getDefaultRange(), [range]);
+  const defaultRange = useMemo(() => getDefaultRange(), []);
+  const activeRange = range ?? defaultRange;
+
+  // Stabilize date strings to prevent infinite re-render loop
+  const fromStr = format(activeRange.start, 'yyyy-MM-dd');
+  const toStr = format(activeRange.end, 'yyyy-MM-dd');
 
   const loadPlan = useCallback(async () => {
     setIsLoading(true);
     try {
-      const from = format(activeRange.start, 'yyyy-MM-dd');
-      const to = format(activeRange.end, 'yyyy-MM-dd');
-      const response = await fetchPlan(from, to);
+      const response = await fetchPlan(fromStr, toStr);
       setBlocks(response.blocks);
       setError(null);
     } catch (err) {
@@ -42,7 +45,7 @@ export const useCalendar = (range?: DateRange, config?: AppConfig | null): UseCa
     } finally {
       setIsLoading(false);
     }
-  }, [activeRange.start, activeRange.end]);
+  }, [fromStr, toStr]);
 
   useEffect(() => {
     void loadPlan();
