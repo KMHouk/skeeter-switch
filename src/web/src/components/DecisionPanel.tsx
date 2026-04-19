@@ -54,10 +54,15 @@ export const DecisionPanel = ({ decision, config, isLoading, error, onRetry }: D
           {indicator(decision.withinTimeWindow)} Within time window ({windowLabel})
         </div>
         <div>
-          {indicator(decision.weatherOk)} Weather OK (precip {Math.round(decision.weather.precipProbability)}%,
-          wind {Math.round(decision.weather.windSpeedMph)} mph)
+          {indicator(decision.weatherOk)}{' '}
+          {decision.weatherOk ? 'Weather favorable' : 'Weather unfavorable'} (precip{' '}
+          {Math.round(decision.weather.precipProbability)}%, wind{' '}
+          {Math.round(decision.weather.windSpeedMph)} mph)
         </div>
-        <div>{indicator(decision.debounceOk)} Debounce OK</div>
+        <div>
+          {indicator(decision.debounceOk)}{' '}
+          {decision.debounceOk ? 'Debounce OK — enough time since last toggle' : 'Debounce blocking — too soon since last toggle'}
+        </div>
         <div>{indicator(!decision.overrideActive)} Override active: {decision.overrideActive ? 'YES' : 'NO'}</div>
         <div>
           → Running: <strong>{running ? 'YES' : 'NO'}</strong>
