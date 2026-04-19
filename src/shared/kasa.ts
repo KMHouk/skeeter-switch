@@ -1,0 +1,77 @@
+import { WebhookResult } from './types';
+import { getTpLinkCredentials } from './keyvault';
+
+// Ambient types for tplink-cloud-api (no @types package available)
+interface TpLinkDevice {
+  powerOn(): Promise<unknown>;
+  powerOff(): Promise<unknown>;
+  alias: string;
+}
+interface TpLinkCloud {
+  getDeviceList(): Promise<TpLinkDevice[]>;
+  getDeviceByAlias(alias: string): TpLinkDevice | undefined;
+}
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment
+const tplinkCloudApi = require('tplink-cloud-api') as { login: (u: string, p: string) => Promise<TpLinkCloud> };
+
+const MAX_RETRIES = 4;
+const BASE_DELAY_MS = 1000;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function toggleDevice(state: 'on' | 'off', deviceAlias: string, dryRun: boolean): Promise<WebhookResult> {
+  if (dryRun) {
+    return { success: true, statusCode: 200, latencyMs: 0, retries: 0, responseBody: 'dry_run' };
+  }
+
+  const credentials = await getTpLinkCredentials();
+  let lastError: string | undefined;
+  let lastLatency = 0;
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
+    const start = Date.now();
+    try {
+      const cloud = await tplinkCloudApi.login(credentials.username, credentials.password);
+      const device = cloud.getDeviceByAlias(deviceAlias);
+      
+      if (!device) {
+        throw new Error(`Device with alias "${deviceAlias}" not found in TP-Link account`);
+      }
+
+      if (state === 'on') {
+        await device.powerOn();
+      } else {
+        await device.powerOff();
+      }
+
+      lastLatency = Date.now() - start;
+      return {
+        success: true,
+        statusCode: 200,
+        latencyMs: lastLatency,
+        retries: attempt,
+        responseBody: state === 'on' ? 'device_on' : 'device_off',
+      };
+    } catch (err) {
+      lastLatency = Date.now() - start;
+      lastError = err instanceof Error ? err.message : 'Unknown Kasa API error';
+    }
+
+    if (attempt < MAX_RETRIES - 1) {
+      const backoff = BASE_DELAY_MS * Math.pow(2, attempt);
+      const jitter = 0.8 + Math.random() * 0.4;
+      await delay(backoff * jitter);
+    }
+  }
+
+  return {
+    success: false,
+    statusCode: 500,
+    latencyMs: lastLatency,
+    retries: MAX_RETRIES - 1,
+    responseBody: '',
+    error: lastError,
+  };
+}

@@ -28,11 +28,10 @@ export async function getSecret(name: string): Promise<string> {
   return result.value;
 }
 
-export async function getIftttKey(): Promise<string> {
-  if (process.env.IFTTT_KEY) {
-    return process.env.IFTTT_KEY;
-  }
-  return getSecret('IFTTT_KEY');
+export async function getTpLinkCredentials(): Promise<{ username: string; password: string }> {
+  const username = process.env.TPLINK_USERNAME ?? await getSecret('tplink-username');
+  const password = process.env.TPLINK_PASSWORD ?? await getSecret('tplink-password');
+  return { username, password };
 }
 
 export async function getAzureMapsKey(): Promise<string> {

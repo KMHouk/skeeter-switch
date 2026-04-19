@@ -97,3 +97,14 @@ Key principle: principle of least privilege on every RBAC assignment. No access 
 - ✅ Key Vault reference syntax correct: `@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/{secret-name}/)`
 - ✅ Function App wires Managed Identity correctly with UserAssigned type
 - ✅ RBAC assignments use least privilege: only Key Vault Secrets User + Storage Table Data Contributor (no higher roles)
+
+### 2026-04-19: IFTTT → TP-Link Credential Migration (In Progress)
+
+**Infrastructure Updates:**
+- Update `infra/modules/keyvault.bicep` — Replace `ifttt-key` secret with `TP_LINK_EMAIL`, `TP_LINK_PASSWORD`, `TP_LINK_DEVICE_ID`
+- Update `infra/modules/functionapp.bicep` — New app settings for TP-Link credentials
+- Update `infra/parameters/dev.bicepparam` — TP-Link parameter values (dev)
+- Update `infra/parameters/prod.bicepparam` — TP-Link parameter values (prod)
+- Coordinates with Bennings on code side
+
+**Orchestration log:** 2026-04-19T01:31:19Z-blair.md — Status IN PROGRESS

@@ -2,8 +2,7 @@ import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { differenceInMinutes, parseISO } from 'date-fns';
 import { isAuthError, requireAuth } from '../../shared/auth';
 import { getCorsHeaders } from '../../shared/cors';
-import { callWebhook } from '../../shared/ifttt';
-import { getIftttKey } from '../../shared/keyvault';
+import { toggleDevice } from '../../shared/kasa';
 import { getConfig, getState, logEvent, updateState } from '../../shared/storage';
 import { PowerState, WebhookResult } from '../../shared/types';
 
@@ -62,9 +61,7 @@ app.http('command', {
         return { status: 200, jsonBody: result, headers: corsHeaders };
       }
 
-      const key = await getIftttKey();
-      const event = body.state === 'on' ? config.iftttEventOn : config.iftttEventOff;
-      const result = await callWebhook(event, key, config.dryRun);
+      const result = await toggleDevice(body.state, config.kasaDeviceAlias, config.dryRun);
       const lastResult = config.dryRun ? 'dry_run' : result.success ? 'success' : 'failure';
       await updateState({
         desiredState: body.state,
@@ -79,7 +76,7 @@ app.http('command', {
         type: 'manual_command',
         desiredState: body.state,
         commandedState: body.state,
-        webhookEvent: event,
+        webhookEvent: `kasa:${body.state}`,
         webhookStatusCode: result.statusCode,
         webhookLatencyMs: result.latencyMs,
         webhookRetries: result.retries,

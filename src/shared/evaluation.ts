@@ -1,7 +1,6 @@
-import { callWebhook } from './ifttt';
+import { toggleDevice } from './kasa';
 import { evaluateDecision } from './decision';
 import { fetchWeather } from './weather';
-import { getIftttKey } from './keyvault';
 import {
   getConfig,
   getState,
@@ -31,9 +30,7 @@ export async function runEvaluationCycle(reason: string): Promise<EvaluationOutc
   const shouldCommand = decision.desiredState !== state.lastCommandedState && decision.debounceOk;
 
   if (shouldCommand) {
-    const key = await getIftttKey();
-    const event = decision.desiredState === 'on' ? config.iftttEventOn : config.iftttEventOff;
-    webhookResult = await callWebhook(event, key, decision.dryRun);
+    webhookResult = await toggleDevice(decision.desiredState, config.kasaDeviceAlias, decision.dryRun);
     const lastResult = decision.dryRun ? 'dry_run' : webhookResult.success ? 'success' : 'failure';
     await updateState({
       lastCommandedState: decision.desiredState,
@@ -47,7 +44,7 @@ export async function runEvaluationCycle(reason: string): Promise<EvaluationOutc
       type: 'webhook_call',
       desiredState: decision.desiredState,
       commandedState: decision.desiredState,
-      webhookEvent: event,
+      webhookEvent: `kasa:${decision.desiredState}`,
       webhookStatusCode: webhookResult.statusCode,
       webhookLatencyMs: webhookResult.latencyMs,
       webhookRetries: webhookResult.retries,

@@ -80,6 +80,20 @@ The MKS-1 uses a **mechanical photocell switch architecture**, not a soft-touch 
 ## Learnings
 <!-- Append entries here as work progresses -->
 
+### 2026-04-17 — IFTTT Pro alternative analysis complete
+Completed comprehensive analysis of cloud control alternatives for TP-Link Kasa EP40 without IFTTT Pro subscription. Key findings:
+1. **tplink-cloud-api npm package** is the immediate MVP solution — free, unofficial (reverse-engineered TP-Link API), works reliably for all EP40 units, ~20 lines of TypeScript code
+2. **TP-Link Official Cloud API** is the recommended production solution — free, official support, requires developer registration (email developers.tpra@tp-link.com), 3-4 week lead time
+3. **Direct local control via port 9999 is NOT viable for EP40** — newer firmware disables port 9999 entirely; port 9999 is closed on most recent EP40 units; not production-safe
+4. **Home Assistant + Nabu Casa ($4.99/mo)** is robust alternative — local control preserved, cloud relay for remote access, most reliable option for homes already running HA
+5. **Zapier & Make.com** are architecturally awkward (Make free tier has no native Kasa support, Zapier webhooks are premium-only); not recommended
+6. **Matter (EP40M variant)** is future-proof but TypeScript/Node.js support immature (2024); not practical now; revisit 2025+
+7. **python-kasa + local bridge** is viable only if port 9999 is confirmed open; network/VPN infrastructure complex; not safe for new deployments
+8. **Cost model:** tplink-cloud-api ($0) → migrate to official API ($0) at Month 2–3; avoids IFTTT Pro ($96–180/year)
+9. **Phased migration:** Use tplink-cloud-api for MVP (3-month sunset), register for official API in parallel, migrate by Month 3
+
+Full analysis written to `.squad/decisions/inbox/fuchs-kasa-control-alternatives.md` with detailed comparison table, implementation examples, costs, and caveats for each option.
+
 ### 2026-04-17 — Onboarding research complete
 Completed initial deep-dive on ARCTIC® MKS hardware. Key findings for skeeter-switch:
 1. Power switching approach is validated — photocell-driven mechanical architecture is fully compatible with external power control
@@ -90,3 +104,6 @@ Completed initial deep-dive on ARCTIC® MKS hardware. Key findings for skeeter-s
 
 ### 2026-04-17 — Temperature floor confirmed (Bennings implementation)
 Bennings implemented 50°F temperature floor gate in decision engine. Confirmed CROSS-ALIGNMENT: the 50°F hardware operating floor (ARCTIC MKS spec) exactly matches the 50°F mosquito dormancy threshold (entomology baseline per Norris analysis). This is optimal — temperature gate suppresses trap during off-season nights (April, October) when mosquitoes are inactive AND when operating below hardware spec would stress equipment. No conflicts; no unnecessary redundancy. Implementation complete & validated in commit c43d88b.
+
+### 2026-04-19 — IFTTT Replacement Research Complete
+Completed comprehensive IFTTT alternative research and published recommendation to decisions inbox. Key finding: Local port 9999 (Kasa device API) is disabled on newer EP40 firmware, making cloud-based integration mandatory. Recommended primary solution: `tplink-cloud-api` npm package (free, stable, ~20 lines of TypeScript). Documented comparison table with 7 alternatives, cost model, phased migration strategy. Decision complete & awaiting orchestration merge (2026-04-19T01:31:19Z).
