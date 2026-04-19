@@ -113,10 +113,9 @@ module alerts 'modules/alerts.bicep' = {
   }
 }
 
-// Module: RBAC Assignments (subscription scope)
+// Module: RBAC Assignments (resource group scope)
 module rbac 'modules/rbac.bicep' = {
   name: 'rbac-deployment'
-  scope: subscription()
   params: {
     keyVaultId: keyVault.outputs.keyVaultId
     storageAccountId: storage.outputs.storageAccountId
