@@ -1,7 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { isAuthError, requireAuth } from '../../shared/auth';
 import { getCorsHeaders } from '../../shared/cors';
-import { clearOverride, logEvent, setOverride } from '../../shared/storage';
+import { clearOverride, logEvent, setOverride, updateState } from '../../shared/storage';
 import { OverrideRecord, OverrideState } from '../../shared/types';
 
 const corsHeaders = getCorsHeaders('POST,OPTIONS');
@@ -28,6 +28,13 @@ app.http('override', {
       }
       if (body.state === 'auto') {
         await clearOverride();
+        await updateState({
+          desiredState: null,
+          lastCommandedState: null,
+          lastCommandTime: null,
+          lastResult: null,
+          lastError: null,
+        });
         await logEvent({
           id: '',
           timestamp,
