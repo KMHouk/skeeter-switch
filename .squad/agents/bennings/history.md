@@ -45,4 +45,15 @@ Key patterns: dryRun flag (default true in dev), all secrets via Key Vault + Man
 - Stored lastDecision and systemHealth metadata as extra columns in SwitchStateTable to keep within the four-table schema.
 - Plan generation uses current weather snapshot and a base state with no debounce/override to produce schedule blocks.
 - TypeScript build verified clean (npm run build). All 8 function handlers compile correctly with @azure/functions v4 API. Timer trigger uses correct cron expression "0 */5 * * * *" (every 5 minutes). No hardcoded secrets detected in source code. All secrets properly fetched via Key Vault + Managed Identity pattern.
-- **2026-04-19 (IFTTT Replacement):** Full code swap in progress. New modules: `src/shared/kasa.ts` (tplink-cloud-api wrapper), updated keyvault.ts, types.ts, config.ts, evaluation.ts, command-handler.ts. Credential path: TP-Link email/password/device-ID → Key Vault → kasa.ts. Coordinates with Blair on infrastructure updates. Orchestration log: 2026-04-19T01:31:19Z-bennings.md
+
+### 2026-04-19 (IFTTT → TP-Link Kasa cloud API swap)
+- **Context:** IFTTT Pro subscription (~$12.99/mo) required just to receive webhooks. Replaced with direct device control via `tplink-cloud-api` npm package (v1.1.6).
+- **New module:** `src/shared/kasa.ts` replaces `src/shared/ifttt.ts`. Function signature: `toggleDevice(state: 'on' | 'off', deviceAlias: string, dryRun: boolean): Promise<WebhookResult>`. Same retry/backoff pattern (4 retries, exponential backoff with jitter, 1s base delay).
+- **Credentials:** `getTpLinkCredentials()` in keyvault.ts pulls `tplink-username` and `tplink-password` from Key Vault (or env vars TPLINK_USERNAME / TPLINK_PASSWORD in dev). Removed `getIftttKey()` entirely.
+- **Config changes:** AppConfig now has `kasaDeviceAlias` instead of `iftttEventOn`/`iftttEventOff`. Default: `'skeeter-switch'` (env var: KASA_DEVICE_ALIAS).
+- **Ambient types:** `tplink-cloud-api` lacks TypeScript definitions. Used local interface declarations (`TpLinkDevice`, `TpLinkCloud`) with `require()` + type cast to maintain type safety.
+- **Status codes:** Kasa API doesn't expose HTTP status codes. Return 200 on success, 500 on all failures. Keep `responseBody` as `'device_on'` or `'device_off'` for observability.
+- **Event log:** `webhookEvent` field now logs `'kasa:on'` or `'kasa:off'` instead of IFTTT event names. Preserves log structure for metrics/queries.
+- **Testing pattern:** dryRun mode returns same mock result as before — no API calls, same WebhookResult interface. Keeps callers (evaluation.ts, command/index.ts) unchanged except for import swap.
+- **Device discovery:** `cloud.getDeviceByAlias(alias)` used to locate EP40 by friendly name. If not found, throws descriptive error caught by retry loop.
+- **Rollout:** Code changes complete, committed. Infrastructure update required: Add Key Vault secrets `tplink-username` and `tplink-password`, remove `ifttt-key`. Run `npm install` to pull `tplink-cloud-api@^1.1.6`.
