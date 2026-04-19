@@ -31,8 +31,7 @@ export interface AppConfig {
   location: { lat: number; lon: number };
   weatherProvider: 'azure-maps' | 'openweather';
   dryRun: boolean;
-  iftttEventOn: string;  // default "skeeter_switch_on"
-  iftttEventOff: string; // default "skeeter_switch_off"
+  kasaDeviceAlias: string;
 }
 
 export interface WeatherConditions {

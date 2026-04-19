@@ -71,8 +71,7 @@ export interface AppConfig {
   location: { lat: number; lon: number };
   weatherProvider: 'azure-maps' | 'openweather';
   dryRun: boolean;
-  iftttEventOn: string;
-  iftttEventOff: string;
+  kasaDeviceAlias: string;
 }
 
 export interface UserInfo {

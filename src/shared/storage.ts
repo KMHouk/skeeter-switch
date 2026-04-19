@@ -46,8 +46,7 @@ interface ConfigEntity {
   locationLon: number;
   weatherProvider: AppConfig['weatherProvider'];
   dryRun: boolean;
-  iftttEventOn: string;
-  iftttEventOff: string;
+  kasaDeviceAlias: string;
 }
 
 interface EventLogEntity {
@@ -154,8 +153,7 @@ function toConfig(entity: ConfigEntity | null): AppConfig {
     },
     weatherProvider: entity.weatherProvider ?? defaults.weatherProvider,
     dryRun: entity.dryRun ?? defaults.dryRun,
-    iftttEventOn: entity.iftttEventOn ?? defaults.iftttEventOn,
-    iftttEventOff: entity.iftttEventOff ?? defaults.iftttEventOff,
+    kasaDeviceAlias: entity.kasaDeviceAlias ?? defaults.kasaDeviceAlias,
   };
 }
 
@@ -174,8 +172,7 @@ function toConfigEntity(config: AppConfig): ConfigEntity {
     locationLon: config.location.lon,
     weatherProvider: config.weatherProvider,
     dryRun: config.dryRun,
-    iftttEventOn: config.iftttEventOn,
-    iftttEventOff: config.iftttEventOff,
+    kasaDeviceAlias: config.kasaDeviceAlias,
   };
 }
 

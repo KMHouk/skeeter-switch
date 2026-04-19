@@ -211,19 +211,11 @@ export const ConfigEditor = ({
           </label>
         </div>
         <div className="form-row">
-          <label>IFTTT Event On</label>
+          <label>Kasa Device Alias</label>
           <input
             type="text"
-            value={draft.iftttEventOn}
-            onChange={(event) => handleChange('iftttEventOn', event.target.value)}
-          />
-        </div>
-        <div className="form-row">
-          <label>IFTTT Event Off</label>
-          <input
-            type="text"
-            value={draft.iftttEventOff}
-            onChange={(event) => handleChange('iftttEventOff', event.target.value)}
+            value={draft.kasaDeviceAlias}
+            onChange={(event) => handleChange('kasaDeviceAlias', event.target.value)}
           />
         </div>
       </div>
