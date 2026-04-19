@@ -249,3 +249,89 @@ These are **different values**. Runbook explicitly maps both to prevent configur
 #### 7. SWA Deployment Token Sequencing ✓
 `AZURE_STATIC_WEB_APPS_API_TOKEN` only exists after SWA resource created by Bicep. Runbook correctly sequences Phase 3 (infra) → Phase 5.4 (SWA deploy) to obtain token from infra outputs.
 
+---
+
+## 8. IFTTT → TP-Link Kasa Cloud API Replacement
+
+**Authors:** Fuchs (Research), MacReady (Architecture), Bennings (Implementation), Blair (Infrastructure)  
+**Date:** 2026-04-19  
+**Status:** IN PROGRESS — Code swap and Bicep updates running
+
+### Problem
+
+IFTTT Pro subscription ($155/year) required for incoming webhooks is cost-prohibitive. Need alternative cloud control path for TP-Link Kasa EP40 smart plug that powers ARCTIC® MKS.
+
+### Key Finding: Local Port 9999 Disabled
+
+Newer Kasa EP40 firmware disables local port 9999 API access by default. Direct device communication is not production-safe. **Cloud-based integration is mandatory.**
+
+### Solution: tplink-cloud-api npm Package
+
+**Primary Recommendation:** `tplink-cloud-api` (free, stable, reverse-engineered TP-Link cloud API)
+- No subscription cost
+- Stable and widely used in home automation community
+- ~20 lines of TypeScript wrapper code
+- Integrated via new `src/shared/kasa.ts` module
+
+**Implementation Scope (Blast Radius):**
+1. New `src/shared/kasa.ts` — tplink-cloud-api wrapper with `powerOn()` / `powerOff()` methods
+2. Update `src/shared/keyvault.ts` — Fetch TP-Link credentials instead of IFTTT key
+3. Update `src/shared/types.ts` — TP-Link credential types (email, password, device-ID)
+4. Update `src/shared/config.ts` — Remove IFTTT fields, add TP-Link fields
+5. Update `src/shared/evaluation.ts` — Command handler integration
+6. Update `src/functions/command-handler.ts` — Call kasa.ts instead of IFTTT webhook
+7. Update `infra/modules/keyvault.bicep` — Replace `ifttt-key` with `TP_LINK_EMAIL`, `TP_LINK_PASSWORD`, `TP_LINK_DEVICE_ID`
+8. Update `infra/modules/functionapp.bicep` — New app settings for TP-Link credentials
+9. Update `infra/parameters/dev.bicepparam` and `prod.bicepparam` — TP-Link credential parameters
+
+**Credential Flow:**
+```
+TP-Link Account (email, password)
+  ↓
+Key Vault (TP_LINK_EMAIL, TP_LINK_PASSWORD, TP_LINK_DEVICE_ID)
+  ↓
+Function App Environment (via app settings + Managed Identity)
+  ↓
+keyvault.ts → kasa.ts → tplink-cloud-api
+```
+
+### Decision Alternatives Considered
+
+| Option | Solution | Cost | Complexity | Status |
+|--------|----------|------|------------|--------|
+| A (Selected) | Direct tplink-cloud-api | $0 | Low | ✅ Recommended |
+| B | TP-Link Official Cloud API | $0 | Medium | Deferred (4-week lead time) |
+| C | Home Assistant + Nabu Casa | $5/mo | High | Alternative if local control needed |
+| D | python-kasa + VPN bridge | $0 | Very High | Not viable (port 9999 disabled) |
+| E | Zapier / Make.com | Varies | Medium-High | Not recommended |
+
+### Phased Migration Path
+
+**Phase 1 (Now):** Deploy with tplink-cloud-api (MVP)  
+**Phase 2 (Month 2–3):** Register for official TP-Link Cloud API (if needed for production stability)  
+**Phase 3 (Month 3):** Migrate to official API (zero-downtime)  
+
+### Rollback Plan
+
+If tplink-cloud-api becomes unreliable:
+1. Revert kasa.ts and related files to original IFTTT code (1-2 hours)
+2. Re-enable IFTTT webhook path in keyvault.ts
+3. Redeploy: no data loss, no config changes needed
+
+### Implementation Progress
+
+- ✅ **Fuchs:** IFTTT alternatives research complete; recommendation documented
+- ✅ **MacReady:** Blast radius analysis complete; Option A validated
+- 🔄 **Bennings:** Code swap in progress (kasa.ts, types, config, evaluation, command-handler)
+- 🔄 **Blair:** Bicep infrastructure updates in progress (keyvault, functionapp, parameters)
+
+**Orchestration Logs:**
+- `.squad/orchestration-log/2026-04-19T013119Z-fuchs.md`
+- `.squad/orchestration-log/2026-04-19T013119Z-macready.md`
+- `.squad/orchestration-log/2026-04-19T013119Z-bennings.md`
+- `.squad/orchestration-log/2026-04-19T013119Z-blair.md`
+
+### Session Log
+
+`.squad/log/2026-04-19T013119Z-kasa-ifttt-replacement.md`
+
