@@ -57,7 +57,9 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Deploy to Function App
         run: |
-          az functionapp deployment source config-zip \
+          az functionapp deploy \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --name ${{ secrets.AZURE_FUNCTION_APP_NAME }} \
-            --src functions-package.zip
+            --src-path functions-package.zip \
+            --type zip \
+            --async false

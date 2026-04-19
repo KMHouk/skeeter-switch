@@ -130,6 +130,10 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
           value: 'false'
         }
         {
+          name: 'WEBSITE_RUN_FROM_PACKAGE'
+          value: '1'
+        }
+        {
           name: 'AZURE_CLIENT_ID'
           value: identityClientId
         }
