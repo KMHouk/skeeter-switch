@@ -16,10 +16,9 @@
 
 ## Phase 1: Azure Prerequisites (one-time)
 
-### 1.1 Create Resource Groups
+### 1.1 Create Resource Group
 
 ```bash
-az group create --name skeeter-switch-dev-rg  --location centralus
 az group create --name skeeter-switch-prod-rg --location centralus
 ```
 
@@ -67,7 +66,7 @@ Save `$APP_ID` and `$SP_OBJECT_ID` — you'll use them throughout this phase.
 
 ### 2.2 Add Federated Credentials for GitHub Actions
 
-Three credentials are required — one for the main branch (auto-deploys) and one per environment:
+Three credentials are required — one for the main branch (auto-deploys) and one for the prod environment:
 
 ```bash
 # Main branch credential
@@ -75,14 +74,6 @@ az ad app federated-credential create --id "$APP_ID" --parameters '{
   "name": "skeeter-switch-main",
   "issuer": "https://token.actions.githubusercontent.com",
   "subject": "repo:KMHouk/skeeter-switch:ref:refs/heads/main",
-  "audiences": ["api://AzureADTokenExchange"]
-}'
-
-# Dev environment credential
-az ad app federated-credential create --id "$APP_ID" --parameters '{
-  "name": "skeeter-switch-dev",
-  "issuer": "https://token.actions.githubusercontent.com",
-  "subject": "repo:KMHouk/skeeter-switch:environment:dev",
   "audiences": ["api://AzureADTokenExchange"]
 }'
 
@@ -95,7 +86,7 @@ az ad app federated-credential create --id "$APP_ID" --parameters '{
 }'
 ```
 
-> **Subject strings must match exactly.** `environment:dev` means the workflow job uses `environment: dev` in its YAML.
+> **Subject strings must match exactly.** `environment:prod` means the workflow job uses `environment: prod` in its YAML.
 
 ### 2.3 Assign Azure RBAC to the App Registration
 
@@ -105,56 +96,39 @@ TENANT_ID=$(az account show --query tenantId -o tsv)
 echo "Subscription: $SUBSCRIPTION_ID | Tenant: $TENANT_ID"
 ```
 
-Assign **Contributor** and **User Access Administrator** on each resource group:
+Assign **Contributor** and **User Access Administrator** on the resource group:
 
 ```bash
-for ENV in dev prod; do
-  RG="skeeter-switch-${ENV}-rg"
+RG="skeeter-switch-prod-rg"
 
-  az role assignment create \
-    --role "Contributor" \
-    --assignee "$SP_OBJECT_ID" \
-    --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG"
+az role assignment create \
+  --role "Contributor" \
+  --assignee "$SP_OBJECT_ID" \
+  --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG"
 
-  az role assignment create \
-    --role "User Access Administrator" \
-    --assignee "$SP_OBJECT_ID" \
-    --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG"
-done
+az role assignment create \
+  --role "User Access Administrator" \
+  --assignee "$SP_OBJECT_ID" \
+  --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG"
 ```
 
 > ⚠️ **Why User Access Administrator is required:** `infra/modules/rbac.bicep` runs at subscription scope to assign the Managed Identity the `Key Vault Secrets User` and `Storage Table Data Contributor` roles. The deploying principal must be able to create role assignments on the Key Vault and Storage resources. User Access Administrator at the resource group level grants this.
 >
 > If the Bicep deploy fails with a permission error related to role assignments, escalate to subscription-scope User Access Administrator as a fallback.
 
-### 2.4 Create GitHub Environments
+### 2.4 Create GitHub Environment
 
 ```bash
-# Using GitHub CLI to create environments (or do this in the portal: Settings → Environments → New environment)
-gh api --method PUT repos/KMHouk/skeeter-switch/environments/dev
 gh api --method PUT repos/KMHouk/skeeter-switch/environments/prod
 ```
 
-**Configure the `prod` environment with a required reviewer:**
-
-GitHub.com → Repository → **Settings** → **Environments** → **prod** → **Required reviewers** → add your GitHub username → **Save protection rules**
-
 ### 2.5 Add GitHub Environment Secrets
-
-Set the following secrets for **both** `dev` and `prod` environments. The values are the same except for `AZURE_RESOURCE_GROUP`:
 
 ```bash
 SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 TENANT_ID=$(az account show --query tenantId -o tsv)
 APP_ID=$(az ad app list --display-name "skeeter-switch-github-actions" --query "[0].appId" -o tsv)
 
-# Dev environment secrets
-gh secret set AZURE_CLIENT_ID        --env dev --body "$APP_ID"
-gh secret set AZURE_TENANT_ID        --env dev --body "$TENANT_ID"
-gh secret set AZURE_SUBSCRIPTION_ID  --env dev --body "$SUBSCRIPTION_ID"
-gh secret set AZURE_RESOURCE_GROUP   --env dev --body "skeeter-switch-dev-rg"
-
-# Prod environment secrets
 gh secret set AZURE_CLIENT_ID        --env prod --body "$APP_ID"
 gh secret set AZURE_TENANT_ID        --env prod --body "$TENANT_ID"
 gh secret set AZURE_SUBSCRIPTION_ID  --env prod --body "$SUBSCRIPTION_ID"
@@ -169,40 +143,29 @@ gh secret set AZURE_RESOURCE_GROUP   --env prod --body "skeeter-switch-prod-rg"
 
 ### 3.1 Run the infra-deploy Workflow
 
-Deploy **dev first**. Fix any issues before deploying prod.
-
 ```bash
-# Trigger via GitHub CLI
-gh workflow run infra-deploy.yml --field environment=dev
-
-# Watch it
+gh workflow run infra-deploy.yml
 gh run watch
 ```
 
-Or via portal: GitHub.com → **Actions** → **Deploy Infrastructure** → **Run workflow** → select `dev` → **Run workflow**
+Or via portal: GitHub.com → **Actions** → **Deploy Infrastructure** → **Run workflow** → **Run workflow**
 
-Once dev is confirmed working, deploy prod:
-
-```bash
-gh workflow run infra-deploy.yml --field environment=prod
-```
-
-> ⚠️ **Confirm `dryRun` before deploying prod:** `infra/parameters/prod.bicepparam` sets `dryRun = false`. This means live TP-Link Kasa API calls will fire in production. This is **intentional and correct** — verify it is what you want before clicking Run.
+> ⚠️ `infra/parameters/prod.bicepparam` sets `dryRun = false`. This means live TP-Link Kasa API calls will fire. This is **intentional and correct**.
 
 **CLI equivalent (bypasses workflow, useful for debugging):**
 
 ```bash
-# Dev — validate first
+# Validate first
 az deployment group validate \
-  --resource-group skeeter-switch-dev-rg \
+  --resource-group skeeter-switch-prod-rg \
   --template-file infra/main.bicep \
-  --parameters infra/parameters/dev.bicepparam
+  --parameters infra/parameters/prod.bicepparam
 
-# Dev — deploy
+# Deploy
 az deployment group create \
-  --resource-group skeeter-switch-dev-rg \
+  --resource-group skeeter-switch-prod-rg \
   --template-file infra/main.bicep \
-  --parameters infra/parameters/dev.bicepparam \
+  --parameters infra/parameters/prod.bicepparam \
   --query "properties.outputs" \
   --output json
 ```
@@ -210,10 +173,8 @@ az deployment group create \
 ### 3.2 Capture Deployment Outputs
 
 ```bash
-ENV=dev   # or prod
-
 az deployment group show \
-  --resource-group "skeeter-switch-${ENV}-rg" \
+  --resource-group skeeter-switch-prod-rg \
   --name "main" \
   --query "properties.outputs" \
   --output json
@@ -232,24 +193,20 @@ Note the following output values for later steps:
 
 **Resource name patterns** (useful for predicting before deploy):
 
-- Function App: `skeeter-switch-{env}-func-{uniqueSuffix}`
-- Key Vault: `skeeterswitch{env}{uniqueSuffix}` (dashes stripped — stays ≤24 chars)
-- Static Web App: `skeeter-switch-{env}-swa`
+- Function App: `skeeter-switch-prod-func-{uniqueSuffix}`
+- Key Vault: `skeeterswitchprod{uniqueSuffix}` (dashes stripped — stays ≤24 chars)
+- Static Web App: `skeeter-switch-prod-swa`
 
-Where `uniqueSuffix = uniqueString(resourceGroup().id, "skeeter-switch", "{env}")` — a deterministic 13-char hex string.
+Where `uniqueSuffix = uniqueString(resourceGroup().id, "skeeter-switch", "prod")` — a deterministic 13-char hex string.
 
 ### 3.3 Add Remaining GitHub Environment Secrets
 
-After infra deploys, add the Function App name secret to each environment:
+After infra deploys, add the Function App name secret:
 
 ```bash
-# Get function app names from outputs
-DEV_FA=$(az deployment group show -g skeeter-switch-dev-rg --name main \
-  --query "properties.outputs.functionAppName.value" -o tsv)
 PROD_FA=$(az deployment group show -g skeeter-switch-prod-rg --name main \
   --query "properties.outputs.functionAppName.value" -o tsv)
 
-gh secret set AZURE_FUNCTION_APP_NAME --env dev  --body "$DEV_FA"
 gh secret set AZURE_FUNCTION_APP_NAME --env prod --body "$PROD_FA"
 ```
 
@@ -264,23 +221,6 @@ The Bicep templates create the Key Vault with **placeholder values**. You must r
 ### 4.1 Add TP-Link Credentials
 
 1. Get your TP-Link service account email and password.
-
-```bash
-KEYVAULT_NAME=$(az deployment group show -g skeeter-switch-dev-rg --name main \
-  --query "properties.outputs.keyVaultName.value" -o tsv)
-
-az keyvault secret set \
-  --vault-name "$KEYVAULT_NAME" \
-  --name "tplink-username" \
-  --value "<your-tplink-service-account-email>"
-
-az keyvault secret set \
-  --vault-name "$KEYVAULT_NAME" \
-  --name "tplink-password" \
-  --value "<your-tplink-service-account-password>"
-```
-
-Repeat for prod:
 
 ```bash
 KEYVAULT_NAME=$(az deployment group show -g skeeter-switch-prod-rg --name main \
@@ -305,7 +245,7 @@ Create an Azure Maps account (if you don't have one) and retrieve the primary ke
 # Azure Maps requires 'global' location (not region-specific)
 az maps account create \
   --name skeeter-switch-maps \
-  --resource-group skeeter-switch-dev-rg \
+  --resource-group skeeter-switch-prod-rg \
   --sku G2 --kind Gen2 \
   --accept-tos \
   --location global
@@ -313,23 +253,14 @@ az maps account create \
 # Get the primary key
 MAPS_KEY=$(az maps account keys list \
   --name skeeter-switch-maps \
-  --resource-group skeeter-switch-dev-rg \
+  --resource-group skeeter-switch-prod-rg \
   --query "primaryKey" -o tsv)
 echo "Maps Key: $MAPS_KEY"
 ```
 
-Then store it in both Key Vaults:
+Then store it in Key Vault:
 
 ```bash
-# Dev
-KEYVAULT_NAME=$(az deployment group show -g skeeter-switch-dev-rg --name main \
-  --query "properties.outputs.keyVaultName.value" -o tsv)
-az keyvault secret set \
-  --vault-name "$KEYVAULT_NAME" \
-  --name "azure-maps-subscription-key" \
-  --value "$MAPS_KEY"
-
-# Prod
 KEYVAULT_NAME=$(az deployment group show -g skeeter-switch-prod-rg --name main \
   --query "properties.outputs.keyVaultName.value" -o tsv)
 az keyvault secret set \
@@ -415,12 +346,12 @@ sed -i "s/{TENANT_ID}/$TENANT_ID/g" src/web/staticwebapp.config.json
 The `staticwebapp.config.json` references two application settings by name. Set them on the SWA resource:
 
 ```bash
-SWA_NAME=$(az deployment group show -g skeeter-switch-dev-rg --name main \
+SWA_NAME=$(az deployment group show -g skeeter-switch-prod-rg --name main \
   --query "properties.outputs.staticWebAppName.value" -o tsv)
 
 az staticwebapp appsettings set \
   --name "$SWA_NAME" \
-  --resource-group skeeter-switch-dev-rg \
+  --resource-group skeeter-switch-prod-rg \
   --setting-names \
     AZURE_CLIENT_ID="<SWA_CLIENT_ID from 5.1>" \
     AZURE_CLIENT_SECRET="<SWA_CLIENT_SECRET from 5.1>"
@@ -433,16 +364,14 @@ az staticwebapp appsettings set \
 ```bash
 az staticwebapp secrets list \
   --name "$SWA_NAME" \
-  --resource-group skeeter-switch-dev-rg \
+  --resource-group skeeter-switch-prod-rg \
   --query "properties.apiKey" -o tsv
 ```
 
 Add to GitHub:
 
 ```bash
-gh secret set AZURE_STATIC_WEB_APPS_API_TOKEN --env dev  --body "<token>"
-# repeat for prod SWA
-gh secret set AZURE_STATIC_WEB_APPS_API_TOKEN --env prod --body "<prod-token>"
+gh secret set AZURE_STATIC_WEB_APPS_API_TOKEN --env prod --body "<token>"
 ```
 
 ### 5.5 Verify `/.auth/login/aad` Works
@@ -458,29 +387,15 @@ If it redirects to an error page: check that the redirect URI in the app registr
 ### 6.1 Run functions-deploy Workflow
 
 ```bash
-gh workflow run functions-deploy.yml --field environment=dev
+gh workflow run functions-deploy.yml
 gh run watch
 ```
-
-For prod (after dev succeeds):
-
-```bash
-gh workflow run functions-deploy.yml --field environment=prod
-```
-
-> The workflow runs `deploy-dev` first, then `deploy-prod` — prod waits for dev to succeed and requires the GitHub Environment approval.
 
 ### 6.2 Run swa-deploy Workflow
 
 ```bash
-gh workflow run swa-deploy.yml --field environment=dev
+gh workflow run swa-deploy.yml
 gh run watch
-```
-
-For prod:
-
-```bash
-gh workflow run swa-deploy.yml --field environment=prod
 ```
 
 ### 6.3 Set `AZURE_ALLOWED_ORIGINS` in Function App Settings
@@ -490,20 +405,18 @@ The Function App's CORS middleware (`src/shared/cors.ts`) reads the `AZURE_ALLOW
 Get the SWA hostname, then set the app setting:
 
 ```bash
-ENV=dev  # repeat for prod
-
-SWA_HOSTNAME=$(az deployment group show -g "skeeter-switch-${ENV}-rg" --name main \
+SWA_HOSTNAME=$(az deployment group show -g skeeter-switch-prod-rg --name main \
   --query "properties.outputs.staticWebAppDefaultHostname.value" -o tsv)
-FA_NAME=$(az deployment group show -g "skeeter-switch-${ENV}-rg" --name main \
+FA_NAME=$(az deployment group show -g skeeter-switch-prod-rg --name main \
   --query "properties.outputs.functionAppName.value" -o tsv)
 
 az functionapp config appsettings set \
-  --resource-group "skeeter-switch-${ENV}-rg" \
+  --resource-group skeeter-switch-prod-rg \
   --name "$FA_NAME" \
   --settings "AZURE_ALLOWED_ORIGINS=https://${SWA_HOSTNAME}"
 ```
 
-**Portal path:** **Azure Portal** → **App Services** → `skeeter-switch-{env}-func-{suffix}` → **Configuration** → **Application settings** → **New application setting** → Name: `AZURE_ALLOWED_ORIGINS` / Value: `https://<swa-hostname>.azurestaticapps.net` → **Save** → **Continue**
+**Portal path:** **Azure Portal** → **App Services** → `skeeter-switch-prod-func-{suffix}` → **Configuration** → **Application settings** → **New application setting** → Name: `AZURE_ALLOWED_ORIGINS` / Value: `https://<swa-hostname>.azurestaticapps.net` → **Save** → **Continue**
 
 > The Function App restarts automatically after saving. Wait ~30 seconds before testing.
 
@@ -513,11 +426,10 @@ az functionapp config appsettings set \
 
 ### 7.1 Smoke Test Checklist
 
-Run these after each full deploy (dev first, then prod):
+Run these after each deploy:
 
 ```bash
-ENV=dev
-FA_HOST=$(az deployment group show -g "skeeter-switch-${ENV}-rg" --name main \
+FA_HOST=$(az deployment group show -g skeeter-switch-prod-rg --name main \
   --query "properties.outputs.functionAppHostName.value" -o tsv)
 
 # Health check (unauthenticated — expects 401 from Function App auth middleware)
@@ -526,7 +438,7 @@ curl -I "https://${FA_HOST}/api/status"
 
 # Verify Function App is running
 az functionapp show \
-  --resource-group "skeeter-switch-${ENV}-rg" \
+  --resource-group skeeter-switch-prod-rg \
   --name "<function-app-name>" \
   --query "state" -o tsv
 # Expected: Running
@@ -588,12 +500,12 @@ You should see TP-Link API call results (success or error details).
 
 Check that the three alert rules are visible:
 
-**Azure Portal** → **Monitor** → **Alerts** → **Alert rules** → filter by resource group `skeeter-switch-{env}-rg`
+**Azure Portal** → **Monitor** → **Alerts** → **Alert rules** → filter by resource group `skeeter-switch-prod-rg`
 
 You should see:
-- `skeeter-switch-{env}-func-{suffix}-error-alert` (severity 2)
-- `skeeter-switch-{env}-func-{suffix}-webhook-failure-alert` (severity 1)
-- `skeeter-switch-{env}-func-{suffix}-heartbeat-alert` (severity 1)
+- `skeeter-switch-prod-func-{suffix}-error-alert` (severity 2)
+- `skeeter-switch-prod-func-{suffix}-webhook-failure-alert` (severity 1)
+- `skeeter-switch-prod-func-{suffix}-heartbeat-alert` (severity 1)
 
 ## Phase 8: TP-Link Kasa Device Verification
 
@@ -650,45 +562,6 @@ curl -X POST "https://${SWA_HOST}/api/command" \
 
 The EP40 should toggle on/off within ~5 seconds. Check Application Insights for the TP-Link API response.
 
-## Phase 9: Entra Conditional Access MFA (one-time)
-
-### 9.1 Create the Conditional Access Policy
-
-**Azure Portal** → **Microsoft Entra ID** → **Security** → **Conditional Access** → **New policy**
-
-Set **Name:** `skeeter-switch MFA Required`
-
-### 9.2 Configure the Policy
-
-**Users:**
-- Include: **All users** (or a specific security group if you want to scope narrowly)
-- Exclude: Your break-glass emergency account if you have one
-
-**Target resources:**
-- **Select resources** → search for `skeeter-switch` → select the **Enterprise application** object (this is the service principal for your `skeeter-switch` app registration created in Phase 5.1)
-- If it doesn't appear in search: **Azure Portal** → **Enterprise applications** → search `skeeter-switch` → copy the **Object ID**, then use **Select** → paste the object ID
-
-**Conditions:** Leave defaults (any platform, any location)
-
-**Grant:**
-- Select **Grant access**
-- Check **Require multi-factor authentication**
-- (Optional) Check **Require authentication strength** → select **Multifactor authentication** to enforce Authenticator app specifically
-- Require: **All of the selected controls**
-
-**Session (optional):**
-- **Sign-in frequency** → Periodic reauthentication → 12 hours
-
-### 9.3 Enable and Save
-
-Set **Enable policy:** **On**
-
-Click **Create**
-
-> ⚠️ **Test first:** Before setting to **On**, set to **Report-only** and sign in once to confirm the policy targets the correct app and your account is not accidentally locked out. Switch to **On** after confirming.
->
-> **Note:** MFA is enforced by Entra Conditional Access at the identity layer — the application code does not implement MFA. The SWA auth redirect handles the login; Conditional Access intercepts and requires MFA before issuing the token.
-
 ---
 
 ## Ongoing: Re-deploying After Code Changes
@@ -697,19 +570,16 @@ After initial setup is complete, subsequent deploys are automated:
 
 ### Auto-deploys (push to main)
 
-| Changed files | Workflow triggered | Environment |
-|---|---|---|
-| `src/functions/**`, `src/shared/**`, `host.json`, `package.json`, `tsconfig.json` | `functions-deploy.yml` | dev |
-| `src/web/**` | `swa-deploy.yml` | dev |
+| Changed files | Workflow triggered |
+|---|---|
+| `src/functions/**`, `src/shared/**`, `host.json`, `package.json`, `tsconfig.json` | `functions-deploy.yml` |
+| `src/web/**` | `swa-deploy.yml` |
 
-### Manual prod deploy
+### Manual deploy (workflow dispatch)
 
 ```bash
-# Deploy functions to prod
-gh workflow run functions-deploy.yml --field environment=prod
-
-# Deploy SWA to prod
-gh workflow run swa-deploy.yml --field environment=prod
+gh workflow run functions-deploy.yml
+gh workflow run swa-deploy.yml
 ```
 
 ### Infrastructure changes
@@ -717,9 +587,7 @@ gh workflow run swa-deploy.yml --field environment=prod
 Only run `infra-deploy.yml` when Bicep files change:
 
 ```bash
-gh workflow run infra-deploy.yml --field environment=dev
-# verify dev, then:
-gh workflow run infra-deploy.yml --field environment=prod
+gh workflow run infra-deploy.yml
 ```
 
 ### Monitor
@@ -735,7 +603,7 @@ GitHub.com → **Actions** tab → watch workflow runs. Failures send GitHub not
 The federated credential subject doesn't match. Verify the exact string:
 
 - For branch-triggered workflows: `repo:KMHouk/skeeter-switch:ref:refs/heads/main`
-- For environment-scoped jobs: `repo:KMHouk/skeeter-switch:environment:dev`
+- For environment-scoped jobs: `repo:KMHouk/skeeter-switch:environment:prod`
 
 Check with: `az ad app federated-credential list --id <APP_ID>`
 
@@ -771,7 +639,7 @@ Usually caused by incorrect redirect URI. Verify:
 
 ### `dryRun` is true in production
 
-**Portal** → **App Services** → Function App → **Configuration** → **Application settings** → find `DRY_RUN` → value should be `false`. If it says `true`, your prod deployment used the wrong parameter file. Re-run `infra-deploy.yml` with `environment=prod` which uses `prod.bicepparam` (`dryRun = false`).
+**Portal** → **App Services** → Function App → **Configuration** → **Application settings** → find `DRY_RUN` → value should be `false`. If it says `true`, re-run `infra-deploy.yml` which uses `prod.bicepparam` (`dryRun = false`).
 
 ### TP-Link Kasa device doesn't toggle
 
@@ -788,9 +656,9 @@ Usually caused by incorrect redirect URI. Verify:
 # Get a fresh token
 az staticwebapp secrets list \
   --name "<swa-name>" \
-  --resource-group "skeeter-switch-<env>-rg" \
+  --resource-group skeeter-switch-prod-rg \
   --query "properties.apiKey" -o tsv
 
 # Update GitHub secret
-gh secret set AZURE_STATIC_WEB_APPS_API_TOKEN --env <env> --body "<new-token>"
+gh secret set AZURE_STATIC_WEB_APPS_API_TOKEN --env prod --body "<new-token>"
 ```

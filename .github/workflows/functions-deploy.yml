@@ -12,13 +12,6 @@ on:
       - 'package-lock.json'
       - 'tsconfig.json'
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment'
-        required: true
-        default: 'dev'
-        type: choice
-        options: [dev, prod]
 
 permissions:
   id-token: write
@@ -48,34 +41,11 @@ jobs:
           name: functions-package
           path: functions-package.zip
 
-  deploy-dev:
-    name: Deploy to Dev
+  deploy:
+    name: Deploy to Prod
     needs: build
     runs-on: ubuntu-latest
-    environment: dev
-    if: github.ref == 'refs/heads/main' || inputs.environment == 'dev'
-    steps:
-      - uses: actions/download-artifact@v4 # TODO: pin to SHA — verify at https://github.com/actions/download-artifact/releases
-        with:
-          name: functions-package
-      - uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: Deploy to Function App
-        run: |
-          az functionapp deployment source config-zip \
-            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-            --name ${{ secrets.AZURE_FUNCTION_APP_NAME }} \
-            --src functions-package.zip
-
-  deploy-prod:
-    name: Deploy to Prod
-    needs: [build, deploy-dev]
-    runs-on: ubuntu-latest
     environment: prod
-    if: inputs.environment == 'prod'
     steps:
       - uses: actions/download-artifact@v4 # TODO: pin to SHA — verify at https://github.com/actions/download-artifact/releases
         with:

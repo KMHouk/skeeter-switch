@@ -1,8 +1,7 @@
 targetScope = 'resourceGroup'
 
-@description('Environment name (dev or prod)')
-@allowed(['dev', 'prod'])
-param environment string
+@description('Environment name')
+param environment string = 'prod'
 
 @description('Location for all resources')
 param location string = resourceGroup().location
@@ -16,8 +15,8 @@ param locationLat string = '40.7128'
 @description('Default longitude for mosquito trap location')
 param locationLon string = '-74.0060'
 
-@description('Enable dry run mode (true for dev, false for prod)')
-param dryRun bool = environment == 'dev'
+@description('Enable dry run mode')
+param dryRun bool = false
 
 @description('Kasa EP40 device alias as set in the TP-Link Kasa app')
 param kasaDeviceAlias string = 'skeeter-switch'
