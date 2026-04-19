@@ -44,12 +44,13 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = {
   name: appServicePlanName
   location: location
   sku: {
-    name: 'Y1'
-    tier: 'Dynamic'
+    name: 'EP1'
+    tier: 'ElasticPremium'
   }
-  kind: 'functionapp'
+  kind: 'elastic'
   properties: {
     reserved: true
+    maximumElasticWorkerCount: 1
   }
 }
 
