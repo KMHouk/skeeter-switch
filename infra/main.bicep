@@ -23,7 +23,7 @@ param dryRun bool = environment == 'dev'
 param kasaDeviceAlias string = 'skeeter-switch'
 
 var prefix = '${appName}-${environment}'
-var uniqueSuffix = uniqueString(resourceGroup().id, appName, environment)
+var uniqueSuffix = uniqueString(resourceGroup().id, appName, environment, location)
 
 // Module: Managed Identity
 module identity 'modules/identity.bicep' = {
