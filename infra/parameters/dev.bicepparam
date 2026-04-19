@@ -1,7 +1,7 @@
 using '../main.bicep'
 
 param environment = 'dev'
-param location = 'eastus'
+param location = 'centralus'
 param appName = 'skeeter-switch'
 param dryRun = true
 param locationLat = '38.8816'

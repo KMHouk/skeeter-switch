@@ -19,8 +19,8 @@
 ### 1.1 Create Resource Groups
 
 ```bash
-az group create --name skeeter-switch-dev-rg  --location eastus
-az group create --name skeeter-switch-prod-rg --location eastus
+az group create --name skeeter-switch-dev-rg  --location centralus
+az group create --name skeeter-switch-prod-rg --location centralus
 ```
 
 ### 1.2 Register Required Resource Providers
