@@ -299,14 +299,46 @@ az keyvault secret set \
 
 ### 4.2 Add Azure Maps Subscription Key
 
-1. **Azure Portal** → **Azure Maps accounts** → create an account (if you don't have one) in the same subscription → **Settings** → **Authentication** → copy the **Primary Key**.
+Create an Azure Maps account (if you don't have one) and retrieve the primary key via CLI:
 
 ```bash
+# Azure Maps requires 'global' location (not region-specific)
+az maps account create \
+  --name skeeter-switch-maps \
+  --resource-group skeeter-switch-dev-rg \
+  --sku G2 --kind Gen2 \
+  --accept-tos \
+  --location global
+
+# Get the primary key
+MAPS_KEY=$(az maps account keys list \
+  --name skeeter-switch-maps \
+  --resource-group skeeter-switch-dev-rg \
+  --query "primaryKey" -o tsv)
+echo "Maps Key: $MAPS_KEY"
+```
+
+Then store it in both Key Vaults:
+
+```bash
+# Dev
+KEYVAULT_NAME=$(az deployment group show -g skeeter-switch-dev-rg --name main \
+  --query "properties.outputs.keyVaultName.value" -o tsv)
 az keyvault secret set \
   --vault-name "$KEYVAULT_NAME" \
   --name "azure-maps-subscription-key" \
-  --value "<your-azure-maps-primary-key>"
+  --value "$MAPS_KEY"
+
+# Prod
+KEYVAULT_NAME=$(az deployment group show -g skeeter-switch-prod-rg --name main \
+  --query "properties.outputs.keyVaultName.value" -o tsv)
+az keyvault secret set \
+  --vault-name "$KEYVAULT_NAME" \
+  --name "azure-maps-subscription-key" \
+  --value "$MAPS_KEY"
 ```
+
+> **Portal alternative:** **Azure Portal** → **Azure Maps accounts** → select your account → **Settings** → **Authentication** → copy the **Primary Key**.
 
 > **Secret names are case-sensitive.** The Function App's app settings reference these exact names:
 > - `tplink-username` → read via `TPLINK_USERNAME` app setting
