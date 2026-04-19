@@ -32,7 +32,7 @@ export const ManualControls = ({ onActionComplete }: ManualControlsProps) => {
     window.setTimeout(() => setToast(null), 4000);
   };
 
-  const runAction = async (label: string, action: () => Promise<void>) => {
+  const runAction = async (label: string, action: () => Promise<void>, successMessage: string) => {
     const confirmed = window.confirm(`Confirm: ${label}?`);
     if (!confirmed) {
       return;
@@ -40,7 +40,7 @@ export const ManualControls = ({ onActionComplete }: ManualControlsProps) => {
     setIsWorking(true);
     try {
       await action();
-      showToast({ message: `${label} succeeded.`, type: 'success' });
+      showToast({ message: successMessage, type: 'success' });
       onActionComplete?.();
     } catch (err) {
       showToast({
@@ -52,70 +52,131 @@ export const ManualControls = ({ onActionComplete }: ManualControlsProps) => {
     }
   };
 
-  const handleOverride = (state: OverrideState) => {
-    return runAction(`Override ${state.toUpperCase()}`, () =>
-      postOverride(state, state === 'auto' ? undefined : ttlMinutes)
+  const handleTempOverride = (state: OverrideState) => {
+    if (state === 'auto') {
+      return runAction(
+        'Clear override — return to AUTO',
+        () => postOverride('auto'),
+        'Override cleared. Returned to AUTO.'
+      );
+    }
+    return runAction(
+      `Temporary override ${state.toUpperCase()} for ${ttlMinutes} minutes`,
+      () => postOverride(state, ttlMinutes),
+      `Temporary override ${state.toUpperCase()} active for ${ttlMinutes} minutes.`
     );
   };
 
   const handleCommand = (state: PowerState) => {
-    return runAction(`Command ${state.toUpperCase()}`, () => postCommand(state));
+    return runAction(
+      `Direct command ${state.toUpperCase()} (permanent)`,
+      () => postCommand(state),
+      `Direct command ${state.toUpperCase()} sent — active indefinitely.`
+    );
+  };
+
+  const handleReturnToAuto = () => {
+    return runAction(
+      'Return to AUTO — clears any override or command',
+      () => postOverride('auto'),
+      'Returned to AUTO. Automation schedule is active.'
+    );
   };
 
   return (
     <div className="card">
       <div className="card-header">Manual Controls</div>
-      <div className="controls-row" style={{ marginBottom: '0.75rem' }}>
-        <button className="button button-primary" onClick={() => handleOverride('on')} disabled={isWorking}>
-          Force ON
-        </button>
-        <button className="button button-danger" onClick={() => handleOverride('off')} disabled={isWorking}>
-          Force OFF
-        </button>
-        <button className="button" onClick={() => handleOverride('auto')} disabled={isWorking}>
-          Return to AUTO
-        </button>
-      </div>
-      <div className="controls-row">
-        <label>
-          Override duration:
-          <select
-            style={{ marginLeft: '0.5rem' }}
-            value={ttlOption}
-            onChange={(event) => setTtlOption(event.target.value)}
+
+      <div className="manual-section">
+        <div className="manual-section-title">Temporary Override</div>
+        <div className="manual-section-subtitle muted">
+          Bypasses the automation schedule for a set duration, then returns to AUTO.
+        </div>
+        <div className="controls-row" style={{ marginBottom: '0.75rem' }}>
+          <button
+            className="button button-primary"
+            onClick={() => handleTempOverride('on')}
+            disabled={isWorking}
           >
-            {ttlOptions.map((option) => (
-              <option key={option} value={option.toString()}>
-                {option} minutes
-              </option>
-            ))}
-            <option value="custom">Custom</option>
-          </select>
-        </label>
-        {ttlOption === 'custom' && (
-          <input
-            type="number"
-            min={1}
-            value={customTtl}
-            onChange={(event) => setCustomTtl(event.target.value)}
-            style={{ width: '100px' }}
-          />
-        )}
-      </div>
-      <div style={{ marginTop: '1rem' }}>
-        <div className="muted" style={{ marginBottom: '0.4rem' }}>
-          Direct command (bypasses logic):
+            🟢 Force ON
+          </button>
+          <button
+            className="button button-danger"
+            onClick={() => handleTempOverride('off')}
+            disabled={isWorking}
+          >
+            🔴 Force OFF
+          </button>
+          <button
+            className="button"
+            onClick={() => handleTempOverride('auto')}
+            disabled={isWorking}
+          >
+            ⬜ Clear Override
+          </button>
         </div>
         <div className="controls-row">
-          <button className="button button-warning" onClick={() => handleCommand('on')} disabled={isWorking}>
-            Command ON
-          </button>
-          <button className="button button-warning" onClick={() => handleCommand('off')} disabled={isWorking}>
-            Command OFF
-          </button>
-          {isWorking && <span className="spinner" />}
+          <label>
+            Duration:
+            <select
+              style={{ marginLeft: '0.5rem' }}
+              value={ttlOption}
+              onChange={(event) => setTtlOption(event.target.value)}
+            >
+              {ttlOptions.map((option) => (
+                <option key={option} value={option.toString()}>
+                  {option} min
+                </option>
+              ))}
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          {ttlOption === 'custom' && (
+            <input
+              type="number"
+              min={1}
+              value={customTtl}
+              onChange={(event) => setCustomTtl(event.target.value)}
+              style={{ width: '80px' }}
+            />
+          )}
         </div>
       </div>
+
+      <hr className="manual-divider" />
+
+      <div className="manual-section">
+        <div className="manual-section-title">Direct Command</div>
+        <div className="manual-section-subtitle muted">
+          Sends a command directly to the device. Stays active indefinitely until you change it.
+        </div>
+        <div className="manual-permanent-badge">⚠️ Permanent — ignores schedule</div>
+        <div className="controls-row">
+          <button
+            className="button button-primary"
+            onClick={() => handleCommand('on')}
+            disabled={isWorking}
+          >
+            🟢 Command ON
+          </button>
+          <button
+            className="button button-danger"
+            onClick={() => handleCommand('off')}
+            disabled={isWorking}
+          >
+            🔴 Command OFF
+          </button>
+          <button className="button" onClick={handleReturnToAuto} disabled={isWorking}>
+            ⬜ Return to AUTO
+          </button>
+        </div>
+      </div>
+
+      {isWorking && (
+        <div style={{ marginTop: '0.75rem' }}>
+          <span className="spinner" />
+        </div>
+      )}
       {toast && <div className={`toast toast-${toast.type}`}>{toast.message}</div>}
     </div>
   );

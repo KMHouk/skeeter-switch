@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { format, startOfWeek, endOfWeek } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { fetchPlan } from '../api/client';
 import { AppConfig, PlanBlock } from '../types';
 
@@ -17,8 +17,8 @@ interface UseCalendarResult {
 
 const getDefaultRange = (): DateRange => {
   const now = new Date();
-  const start = startOfWeek(now, { weekStartsOn: 1 });
-  const end = endOfWeek(now, { weekStartsOn: 1 });
+  const start = startOfMonth(now);
+  const end = endOfMonth(now);
   return { start, end };
 };
 
