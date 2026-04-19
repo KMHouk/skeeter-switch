@@ -9,7 +9,7 @@ import { PlanBlock, PlanResponse, SwitchState } from '../../shared/types';
 
 const corsHeaders = getCorsHeaders('GET,OPTIONS');
 
-const MAX_DAYS = 14;
+const MAX_DAYS = 31;
 
 function buildBaseState(): SwitchState {
   return {
@@ -47,7 +47,7 @@ app.http('plan', {
       if (daySpan > MAX_DAYS || daySpan <= 0) {
         return {
           status: 400,
-          jsonBody: { error: 'Date range must be between 1 and 14 days' },
+          jsonBody: { error: 'Date range must be between 1 and 31 days' },
           headers: corsHeaders,
         };
       }
