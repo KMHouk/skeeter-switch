@@ -49,8 +49,8 @@ export const SystemHealth = ({ health, isLoading, error, onRetry }: SystemHealth
     );
   }
 
-  const lastEval = health.lastEvaluation ?? health.lastEvaluationTime ?? null;
-  const lastWeather = health.lastWeatherFetch ?? health.lastWeatherFetchTime ?? null;
+  const lastEval = health.lastEvaluationAt ?? null;
+  const lastWeather = health.lastWeatherFetchAt ?? null;
   const alertStatus = health.alertStatus ?? 'unknown';
   const statusIcon = alertStatus === 'ok' ? '✅' : alertStatus === 'warning' ? '⚠️' : '❌';
 
@@ -67,7 +67,6 @@ export const SystemHealth = ({ health, isLoading, error, onRetry }: SystemHealth
         <div>
           Alert Status: {alertStatus.toUpperCase()} {statusIcon}
         </div>
-        {health.alertMessage && <div className="muted">{health.alertMessage}</div>}
       </div>
     </div>
   );
