@@ -98,13 +98,33 @@ Key principle: principle of least privilege on every RBAC assignment. No access 
 - ✅ Function App wires Managed Identity correctly with UserAssigned type
 - ✅ RBAC assignments use least privilege: only Key Vault Secrets User + Storage Table Data Contributor (no higher roles)
 
-### 2026-04-19: IFTTT → TP-Link Credential Migration (In Progress)
+### 2026-04-19: IFTTT → TP-Link Kasa Credential Migration
 
-**Infrastructure Updates:**
-- Update `infra/modules/keyvault.bicep` — Replace `ifttt-key` secret with `TP_LINK_EMAIL`, `TP_LINK_PASSWORD`, `TP_LINK_DEVICE_ID`
-- Update `infra/modules/functionapp.bicep` — New app settings for TP-Link credentials
-- Update `infra/parameters/dev.bicepparam` — TP-Link parameter values (dev)
-- Update `infra/parameters/prod.bicepparam` — TP-Link parameter values (prod)
-- Coordinates with Bennings on code side
+**Context:** Replaced IFTTT webhook integration with direct TP-Link Kasa cloud API for switch control. Infrastructure changes to support new authentication model.
 
-**Orchestration log:** 2026-04-19T01:31:19Z-blair.md — Status IN PROGRESS
+**Files Modified:**
+- `infra/modules/keyvault.bicep` — Removed `ifttt-key` secret; added `tplink-username` and `tplink-password` secrets (both with PLACEHOLDER values)
+- `infra/modules/functionapp.bicep` — Removed params: `iftttEventOn`, `iftttEventOff`; added param: `kasaDeviceAlias` (default: 'skeeter-switch')
+- `infra/modules/functionapp.bicep` — Removed app settings: `IFTTT_KEY`, `IFTTT_EVENT_ON`, `IFTTT_EVENT_OFF`; added: `TPLINK_USERNAME`, `TPLINK_PASSWORD` (Key Vault refs), `KASA_DEVICE_ALIAS` (plain value)
+- `infra/main.bicep` — Removed params: `iftttEventOn`, `iftttEventOff`; added param: `kasaDeviceAlias`
+- `infra/parameters/dev.bicepparam` — Replaced IFTTT params with `kasaDeviceAlias = 'skeeter-switch'`
+- `infra/parameters/prod.bicepparam` — Replaced IFTTT params with `kasaDeviceAlias = 'skeeter-switch'`
+
+**Validation Status:** ✅ PASSING (`az bicep build --file infra/main.bicep` exit code 0)
+- Expected warnings unchanged: BCP073 (rbac.bicep scope), BCP334 (storage.bicep), use-resource-symbol-reference (storage.bicep)
+
+**Post-Deployment Action Required:**
+- Run `az keyvault secret set --vault-name <vault> --name tplink-username --value <email>` to populate TP-Link account email
+- Run `az keyvault secret set --vault-name <vault> --name tplink-password --value <password>` to populate TP-Link account password
+- Device alias can be overridden at deploy time via parameter file or `--parameters kasaDeviceAlias='<name>'`
+
+**Key Vault Secret Migration:**
+- REMOVED: `ifttt-key` (single webhook key)
+- ADDED: `tplink-username`, `tplink-password` (account credentials for TP-Link Kasa cloud API)
+
+**App Settings Pattern:**
+- All credentials remain Key Vault references: `@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/{secret-name}/)`
+- Device alias is plain value (not sensitive), configurable via parameter with secure default
+- Follows principle of least privilege: only secrets that need rotation live in Key Vault
+
+**Git Commit:** e38cf79 "infra: replace IFTTT secrets with TP-Link Kasa credentials in Bicep"
