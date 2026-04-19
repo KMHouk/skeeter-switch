@@ -22,11 +22,8 @@ param appInsightsConnectionString string
 @description('Key Vault URI')
 param keyVaultUri string
 
-@description('IFTTT event name for ON')
-param iftttEventOn string
-
-@description('IFTTT event name for OFF')
-param iftttEventOff string
+@description('Kasa EP40 device alias in TP-Link app')
+param kasaDeviceAlias string = 'skeeter-switch'
 
 @description('Enable dry run mode')
 param dryRun bool
@@ -93,16 +90,16 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
           value: '@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/azure-maps-subscription-key/)'
         }
         {
-          name: 'IFTTT_KEY'
-          value: '@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/ifttt-key/)'
+          name: 'TPLINK_USERNAME'
+          value: '@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/tplink-username/)'
         }
         {
-          name: 'IFTTT_EVENT_ON'
-          value: iftttEventOn
+          name: 'TPLINK_PASSWORD'
+          value: '@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/tplink-password/)'
         }
         {
-          name: 'IFTTT_EVENT_OFF'
-          value: iftttEventOff
+          name: 'KASA_DEVICE_ALIAS'
+          value: kasaDeviceAlias
         }
         {
           name: 'DRY_RUN'

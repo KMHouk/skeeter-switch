@@ -6,5 +6,4 @@ param appName = 'skeeter-switch'
 param dryRun = true
 param locationLat = '38.8816'
 param locationLon = '-77.1311'
-param iftttEventOn = 'skeeter_switch_on'
-param iftttEventOff = 'skeeter_switch_off'
+param kasaDeviceAlias = 'skeeter-switch'

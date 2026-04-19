@@ -19,11 +19,8 @@ param locationLon string = '-74.0060'
 @description('Enable dry run mode (true for dev, false for prod)')
 param dryRun bool = environment == 'dev'
 
-@description('IFTTT event name for turning switch ON')
-param iftttEventOn string = 'skeeter_switch_on'
-
-@description('IFTTT event name for turning switch OFF')
-param iftttEventOff string = 'skeeter_switch_off'
+@description('Kasa EP40 device alias as set in the TP-Link Kasa app')
+param kasaDeviceAlias string = 'skeeter-switch'
 
 var prefix = '${appName}-${environment}'
 var uniqueSuffix = uniqueString(resourceGroup().id, appName, environment)
@@ -88,8 +85,7 @@ module functionApp 'modules/functionapp.bicep' = {
     storageConnectionString: storage.outputs.storageConnectionString
     appInsightsConnectionString: appInsights.outputs.connectionString
     keyVaultUri: keyVault.outputs.keyVaultUri
-    iftttEventOn: iftttEventOn
-    iftttEventOff: iftttEventOff
+    kasaDeviceAlias: kasaDeviceAlias
     dryRun: dryRun
     locationLat: locationLat
     locationLon: locationLon

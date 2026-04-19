@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.42.1.51946",
-      "templateHash": "6170834810282036150"
+      "templateHash": "7681022912676014691"
     }
   },
   "parameters": {
@@ -55,18 +55,11 @@
         "description": "Enable dry run mode (true for dev, false for prod)"
       }
     },
-    "iftttEventOn": {
+    "kasaDeviceAlias": {
       "type": "string",
-      "defaultValue": "skeeter_switch_on",
+      "defaultValue": "skeeter-switch",
       "metadata": {
-        "description": "IFTTT event name for turning switch ON"
-      }
-    },
-    "iftttEventOff": {
-      "type": "string",
-      "defaultValue": "skeeter_switch_off",
-      "metadata": {
-        "description": "IFTTT event name for turning switch OFF"
+        "description": "Kasa EP40 device alias as set in the TP-Link Kasa app"
       }
     }
   },
@@ -169,7 +162,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.42.1.51946",
-              "templateHash": "14423623353421182341"
+              "templateHash": "18054999877840799836"
             }
           },
           "parameters": {
@@ -193,7 +186,7 @@
             }
           },
           "variables": {
-            "storageAccountName": "[format('{0}{1}', replace(parameters('prefix'), '-', ''), parameters('uniqueSuffix'))]"
+            "storageAccountName": "[take(format('{0}{1}', replace(parameters('prefix'), '-', ''), parameters('uniqueSuffix')), 24)]"
           },
           "resources": {
             "storageAccount": {
@@ -457,7 +450,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.42.1.51946",
-              "templateHash": "12345771386137017177"
+              "templateHash": "14414913282515679915"
             }
           },
           "parameters": {
@@ -481,7 +474,7 @@
             }
           },
           "variables": {
-            "keyVaultName": "[format('{0}{1}', replace(parameters('prefix'), '-', ''), parameters('uniqueSuffix'))]"
+            "keyVaultName": "[take(format('{0}{1}', replace(parameters('prefix'), '-', ''), parameters('uniqueSuffix')), 24)]"
           },
           "resources": [
             {
@@ -508,7 +501,18 @@
             {
               "type": "Microsoft.KeyVault/vaults/secrets",
               "apiVersion": "2023-07-01",
-              "name": "[format('{0}/{1}', variables('keyVaultName'), 'ifttt-key')]",
+              "name": "[format('{0}/{1}', variables('keyVaultName'), 'tplink-username')]",
+              "properties": {
+                "value": "PLACEHOLDER-UPDATE-AFTER-DEPLOYMENT"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', variables('keyVaultName'), 'tplink-password')]",
               "properties": {
                 "value": "PLACEHOLDER-UPDATE-AFTER-DEPLOYMENT"
               },
@@ -579,11 +583,8 @@
           "keyVaultUri": {
             "value": "[reference('keyVault').outputs.keyVaultUri.value]"
           },
-          "iftttEventOn": {
-            "value": "[parameters('iftttEventOn')]"
-          },
-          "iftttEventOff": {
-            "value": "[parameters('iftttEventOff')]"
+          "kasaDeviceAlias": {
+            "value": "[parameters('kasaDeviceAlias')]"
           },
           "dryRun": {
             "value": "[parameters('dryRun')]"
@@ -602,7 +603,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.42.1.51946",
-              "templateHash": "12739878569756989005"
+              "templateHash": "17158048687179895247"
             }
           },
           "parameters": {
@@ -654,16 +655,11 @@
                 "description": "Key Vault URI"
               }
             },
-            "iftttEventOn": {
+            "kasaDeviceAlias": {
               "type": "string",
+              "defaultValue": "skeeter-switch",
               "metadata": {
-                "description": "IFTTT event name for ON"
-              }
-            },
-            "iftttEventOff": {
-              "type": "string",
-              "metadata": {
-                "description": "IFTTT event name for OFF"
+                "description": "Kasa EP40 device alias in TP-Link app"
               }
             },
             "dryRun": {
@@ -696,10 +692,10 @@
               "name": "[variables('appServicePlanName')]",
               "location": "[parameters('location')]",
               "sku": {
-                "name": "Y1",
-                "tier": "Dynamic"
+                "name": "B1",
+                "tier": "Basic"
               },
-              "kind": "functionapp",
+              "kind": "linux",
               "properties": {
                 "reserved": true
               }
@@ -719,6 +715,7 @@
               "properties": {
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
                 "httpsOnly": true,
+                "keyVaultReferenceIdentity": "[parameters('identityId')]",
                 "siteConfig": {
                   "linuxFxVersion": "Node|20",
                   "ftpsState": "Disabled",
@@ -745,16 +742,16 @@
                       "value": "[format('@Microsoft.KeyVault(SecretUri={0}secrets/azure-maps-subscription-key/)', parameters('keyVaultUri'))]"
                     },
                     {
-                      "name": "IFTTT_KEY",
-                      "value": "[format('@Microsoft.KeyVault(SecretUri={0}secrets/ifttt-key/)', parameters('keyVaultUri'))]"
+                      "name": "TPLINK_USERNAME",
+                      "value": "[format('@Microsoft.KeyVault(SecretUri={0}secrets/tplink-username/)', parameters('keyVaultUri'))]"
                     },
                     {
-                      "name": "IFTTT_EVENT_ON",
-                      "value": "[parameters('iftttEventOn')]"
+                      "name": "TPLINK_PASSWORD",
+                      "value": "[format('@Microsoft.KeyVault(SecretUri={0}secrets/tplink-password/)', parameters('keyVaultUri'))]"
                     },
                     {
-                      "name": "IFTTT_EVENT_OFF",
-                      "value": "[parameters('iftttEventOff')]"
+                      "name": "KASA_DEVICE_ALIAS",
+                      "value": "[parameters('kasaDeviceAlias')]"
                     },
                     {
                       "name": "DRY_RUN",
@@ -782,7 +779,7 @@
                     },
                     {
                       "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
-                      "value": "true"
+                      "value": "false"
                     },
                     {
                       "name": "AZURE_CLIENT_ID",
@@ -843,6 +840,12 @@
           },
           "location": {
             "value": "[parameters('location')]"
+          },
+          "functionAppId": {
+            "value": "[reference('functionApp').outputs.functionAppId.value]"
+          },
+          "functionAppRegion": {
+            "value": "[parameters('location')]"
           }
         },
         "template": {
@@ -852,7 +855,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.42.1.51946",
-              "templateHash": "5504660566364889999"
+              "templateHash": "8275955563398430882"
             }
           },
           "parameters": {
@@ -866,6 +869,18 @@
               "type": "string",
               "metadata": {
                 "description": "Location for all resources (note: Static Web Apps have limited regions)"
+              }
+            },
+            "functionAppId": {
+              "type": "string",
+              "metadata": {
+                "description": "Function App resource ID for linked backend"
+              }
+            },
+            "functionAppRegion": {
+              "type": "string",
+              "metadata": {
+                "description": "Function App region for linked backend"
               }
             }
           },
@@ -884,6 +899,18 @@
                   "skipGithubActionWorkflowGeneration": true
                 }
               }
+            },
+            {
+              "type": "Microsoft.Web/staticSites/linkedBackends",
+              "apiVersion": "2022-09-01",
+              "name": "[format('{0}/{1}', format('{0}-swa', parameters('prefix')), 'backend')]",
+              "properties": {
+                "backendResourceId": "[parameters('functionAppId')]",
+                "region": "[parameters('functionAppRegion')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/staticSites', format('{0}-swa', parameters('prefix')))]"
+              ]
             }
           ],
           "outputs": {
@@ -901,7 +928,10 @@
             }
           }
         }
-      }
+      },
+      "dependsOn": [
+        "functionApp"
+      ]
     },
     "alerts": {
       "type": "Microsoft.Resources/deployments",
@@ -930,7 +960,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.42.1.51946",
-              "templateHash": "3886652917706830141"
+              "templateHash": "4987005497179282789"
             }
           },
           "parameters": {
@@ -1041,7 +1071,7 @@
                 "criteria": {
                   "allOf": [
                     {
-                      "query": "customEvents | where name == \"evaluation_cycle\"",
+                      "query": "traces | where message contains \"evaluation_cycle\"",
                       "timeAggregation": "Count",
                       "operator": "LessThan",
                       "threshold": 1,

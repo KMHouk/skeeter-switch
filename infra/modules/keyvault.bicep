@@ -30,8 +30,16 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
 }
 
 // Create placeholder secrets (user will need to update values)
-resource iftttKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
-  name: 'ifttt-key'
+resource tplinkUsernameSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  name: 'tplink-username'
+  parent: keyVault
+  properties: {
+    value: 'PLACEHOLDER-UPDATE-AFTER-DEPLOYMENT'
+  }
+}
+
+resource tplinkPasswordSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  name: 'tplink-password'
   parent: keyVault
   properties: {
     value: 'PLACEHOLDER-UPDATE-AFTER-DEPLOYMENT'
