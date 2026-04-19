@@ -7,7 +7,7 @@ param location string
 @description('Unique suffix for globally unique names')
 param uniqueSuffix string
 
-var keyVaultName = '${replace(prefix, '-', '')}${uniqueSuffix}'
+var keyVaultName = take('${replace(prefix, '-', '')}${uniqueSuffix}', 24)
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: keyVaultName

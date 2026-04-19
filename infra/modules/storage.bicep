@@ -7,7 +7,7 @@ param location string
 @description('Unique suffix for globally unique names')
 param uniqueSuffix string
 
-var storageAccountName = '${replace(prefix, '-', '')}${uniqueSuffix}'
+var storageAccountName = take('${replace(prefix, '-', '')}${uniqueSuffix}', 24)
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: storageAccountName
