@@ -2,14 +2,22 @@ import { WebhookResult } from './types';
 import { getTpLinkCredentials } from './keyvault';
 
 // Ambient types for tplink-cloud-api (no @types package available)
+interface TpLinkDeviceInfo {
+  alias: string;
+  deviceId: string;
+  deviceModel: string;
+}
 interface TpLinkDevice {
   powerOn(): Promise<unknown>;
   powerOff(): Promise<unknown>;
-  alias: string;
+  getSysInfo(): Promise<{
+    children?: Array<{ id: string; state: number; alias: string }>;
+    [key: string]: unknown;
+  }>;
 }
 interface TpLinkCloud {
-  getDeviceList(): Promise<TpLinkDevice[]>;
-  getDeviceByAlias(alias: string): TpLinkDevice | undefined;
+  getDeviceList(): Promise<TpLinkDeviceInfo[]>;
+  getHS100(alias: string): TpLinkDevice;
 }
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment
 const tplinkCloudApi = require('tplink-cloud-api') as { login: (u: string, p: string) => Promise<TpLinkCloud> };
@@ -34,16 +42,37 @@ export async function toggleDevice(state: 'on' | 'off', deviceAlias: string, dry
     const start = Date.now();
     try {
       const cloud = await tplinkCloudApi.login(credentials.username, credentials.password);
-      const device = cloud.getDeviceByAlias(deviceAlias);
-      
-      if (!device) {
+      const devices = await cloud.getDeviceList();
+
+      // Find the parent device that contains the target child outlet alias
+      let targetDevice: TpLinkDevice | undefined;
+      for (const info of devices) {
+        const dev = cloud.getHS100(info.alias);
+        const sysInfo = await dev.getSysInfo();
+        if (sysInfo.children) {
+          const child = sysInfo.children.find(
+            (c) => c.alias.toLowerCase() === deviceAlias.toLowerCase()
+          );
+          if (child) {
+            targetDevice = dev;
+            break;
+          }
+        }
+        // Also match by parent alias
+        if (info.alias.toLowerCase() === deviceAlias.toLowerCase()) {
+          targetDevice = dev;
+          break;
+        }
+      }
+
+      if (!targetDevice) {
         throw new Error(`Device with alias "${deviceAlias}" not found in TP-Link account`);
       }
 
       if (state === 'on') {
-        await device.powerOn();
+        await targetDevice.powerOn();
       } else {
-        await device.powerOff();
+        await targetDevice.powerOff();
       }
 
       lastLatency = Date.now() - start;
