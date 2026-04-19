@@ -57,3 +57,18 @@ Key patterns: dryRun flag (default true in dev), all secrets via Key Vault + Man
 - **Testing pattern:** dryRun mode returns same mock result as before — no API calls, same WebhookResult interface. Keeps callers (evaluation.ts, command/index.ts) unchanged except for import swap.
 - **Device discovery:** `cloud.getDeviceByAlias(alias)` used to locate EP40 by friendly name. If not found, throws descriptive error caught by retry loop.
 - **Rollout:** Code changes complete, committed. Infrastructure update required: Add Key Vault secrets `tplink-username` and `tplink-password`, remove `ifttt-key`. Run `npm install` to pull `tplink-cloud-api@^1.1.6`.
+
+### 2026-04-19 (session 5 — documentation updates for Kasa)
+
+- **README.md overhaul:** Replaced IFTTT Setup section with new "TP-Link Kasa Setup" section covering:
+  - Service account creation (not personal credentials)
+  - Device addition and aliasing in Kasa app
+  - Key Vault secret storage (`tplink-username`, `tplink-password`)
+- **Architecture diagram:** Updated data flow from "IFTTT Webhook Client → Kasa EP40" to "TP-Link Cloud API Client → Kasa EP40" for clarity.
+- **Local dev config:** Updated `local.settings.json` example to show `TPLINK_USERNAME`, `TPLINK_PASSWORD`, `KASA_DEVICE_ALIAS` instead of `IFTTT_KEY`, `IFTTT_EVENT_ON`, `IFTTT_EVENT_OFF`.
+- **Security checklist:** Added TP-Link specific items (service account credentials never in source control, device alias matches Kasa app, monitor unofficial API for breaking changes).
+- **DEPLOY.md Phase 4:** Replaced "Add IFTTT Webhook Key" with "Add TP-Link Credentials" — now stores `tplink-username` and `tplink-password` in Key Vault.
+- **DEPLOY.md Phase 7.3:** Replaced webhook verification with "Verify TP-Link Device Response" — manual command API test using `POST /api/command` with dryRun=false, observe physical device toggle, check Application Insights for TP-Link API logs.
+- **DEPLOY.md Phase 8:** Completely replaced IFTTT applet setup instructions with "TP-Link Kasa Device Verification" covering device alias matching, API connectivity testing, troubleshooting device not found / auth errors / offline device.
+- **DEPLOY.md troubleshooting:** Replaced IFTTT webhook testing with TP-Link device toggle troubleshooting; added device alias case-sensitivity warning and note about unofficial API.
+- **Commit:** All documentation changes pushed with co-author trailer.
