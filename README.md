@@ -15,15 +15,15 @@
                                 │  └────────┬────────┘  │
                                 │           │           │
                                 │  ┌────────▼────────┐  │
-                                │  │ IFTTT Webhook    │  │
-                                │  │ Client           │  │
+                                │  │ TP-Link Cloud    │  │
+                                │  │ API Client       │  │
                                 │  └────────┬────────┘  │
                                 └───────────┼───────────┘
                                             │
                     ┌───────────────────────┬┴──────────────────────┐
                     │                       │                       │
            ┌────────▼────────┐    ┌────────▼────────┐    ┌────────▼────────┐
-           │ Azure Table     │    │ Azure Maps      │    │ IFTTT → Kasa    │
+           │ Azure Table     │    │ Azure Maps      │    │ TP-Link Kasa    │
            │ Storage         │    │ Weather API     │    │ EP40 Smart Plug │
            │ (state, config, │    │ (conditions &   │    │ (ON / OFF)      │
            │  logs, overrides)│    │  forecast)      │    │                 │
@@ -39,9 +39,9 @@
 ### How It Works
 
 1. **Timer trigger** fires every 5 minutes
-2. **Decision Engine** evaluates: time window (18:00–06:00 ET), weather (no rain, precip < 30%, wind < 12 mph), debounce (10 min), and any active override
-3. If desired state differs from last commanded state → **IFTTT Webhook** fires
-4. IFTTT triggers **Kasa EP40** ON or OFF
+2. **Decision Engine** evaluates: time window (18:00–06:00 ET), weather (no rain, precip < 30%, wind < 12 mph), debounce (15 min), and any active override
+3. If desired state differs from last commanded state → **TP-Link Cloud API** fires
+4. TP-Link Cloud API toggles **Kasa EP40** ON or OFF
 5. Everything is logged to **Azure Table Storage** with full decision reasoning
 
 ### API Endpoints
@@ -58,33 +58,31 @@
 
 ---
 
-## IFTTT Setup
+## TP-Link Kasa Setup
 
-The system controls the Kasa EP40 via IFTTT Webhooks. You need two applets:
+The system controls the Kasa EP40 directly via the TP-Link Cloud API. You need a TP-Link account and the device added to the Kasa app.
 
-### 1. Create the "ON" Applet
+### 1. Create a Dedicated TP-Link Service Account
 
-1. Go to [ifttt.com/create](https://ifttt.com/create)
-2. **If This** → Choose **Webhooks** → **Receive a web request**
-3. Event Name: `skeeter_switch_on`
-4. **Then That** → Choose **Kasa** → **Turn on**
-5. Select your EP40 device
-6. Save the applet
+1. Go to [tplink.com](https://tplink.com) and sign up for a new account (recommended: use a service account email, not your personal account)
+2. Verify your email
 
-### 2. Create the "OFF" Applet
+### 2. Add the EP40 to Kasa and Set the Device Alias
 
-1. Repeat the above with Event Name: `skeeter_switch_off`
-2. **Then That** → **Kasa** → **Turn off**
-3. Select the same EP40 device
-4. Save the applet
+1. Download the Kasa app (iOS or Android) or use the web portal [tplink.com/iot](https://tplink.com/iot)
+2. Sign in with your service account credentials
+3. Add your TP-Link Kasa EP40 smart plug to your account
+4. Name/alias the device—this name becomes the `KASA_DEVICE_ALIAS` config value. Example: `skeeter-switch`
+5. Verify the device is online and responding in the Kasa app
 
-### 3. Get Your Webhook Key
+### 3. Store Credentials in Azure Key Vault
 
-1. Go to [maker.ifttt.com/use/](https://maker.ifttt.com/use/)
-2. Your key is shown on that page (the string after `/use/`)
-3. Store this key in Azure Key Vault as `IFTTT-WEBHOOK-KEY`
+Store your TP-Link service account credentials as secrets in Key Vault (these are referenced by the Function App via Managed Identity):
 
-The system calls: `https://maker.ifttt.com/trigger/{event}/with/key/{your-key}`
+- **Secret name:** `tplink-username` → **Value:** your TP-Link service account email
+- **Secret name:** `tplink-password` → **Value:** your TP-Link service account password
+
+Do **not** use personal credentials; the service account isolates this application's access.
 
 ---
 
@@ -156,7 +154,24 @@ npm install
 
 # Copy the settings template and fill in dev values
 cp local.settings.json.template local.settings.json
-# Edit local.settings.json with your IFTTT key, weather API key, etc.
+# Edit local.settings.json with your TP-Link credentials, weather API key, etc.
+```
+
+**local.settings.json values:**
+
+```json
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "AZURE_MAPS_SUBSCRIPTION_KEY": "<your-azure-maps-key>",
+    "TPLINK_USERNAME": "<your-tplink-service-account-email>",
+    "TPLINK_PASSWORD": "<your-tplink-service-account-password>",
+    "KASA_DEVICE_ALIAS": "skeeter-switch",
+    "DRY_RUN": "true"
+  }
+}
 ```
 
 ### Run the Backend
@@ -275,6 +290,9 @@ gh workflow run swa-deploy.yml
 - [ ] Application Insights alerts configured and enabled
 - [ ] Key Vault soft-delete enabled
 - [ ] Review App Registration "Who can access" — restrict to your tenant
+- [ ] TP-Link service account credentials never committed to source control
+- [ ] TP-Link Kasa device alias matches the device name in the Kasa app
+- [ ] Monitor TP-Link Cloud API availability (unofficial API — may change)
 
 ---
 

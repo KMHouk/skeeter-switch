@@ -10,7 +10,7 @@
 - [ ] Node.js 18+ installed
 - [ ] Access to the skeeter-switch GitHub repo with **Admin** rights
 - [ ] An Azure subscription with **Owner** access (Owner required for subscription-level RBAC; Contributor alone is insufficient — see Phase 2)
-- [ ] An IFTTT Pro account with the **Webhooks** service enabled and **Kasa** service connected to your EP40 device
+- [ ] A TP-Link Kasa account (dedicated service account recommended) with the EP40 smart plug added and named/aliased
 
 ---
 
@@ -187,7 +187,7 @@ Once dev is confirmed working, deploy prod:
 gh workflow run infra-deploy.yml --field environment=prod
 ```
 
-> ⚠️ **Confirm `dryRun` before deploying prod:** `infra/parameters/prod.bicepparam` sets `dryRun = false`. This means live IFTTT webhooks will fire in production. This is **intentional and correct** — verify it is what you want before clicking Run.
+> ⚠️ **Confirm `dryRun` before deploying prod:** `infra/parameters/prod.bicepparam` sets `dryRun = false`. This means live TP-Link Kasa API calls will fire in production. This is **intentional and correct** — verify it is what you want before clicking Run.
 
 **CLI equivalent (bypasses workflow, useful for debugging):**
 
@@ -261,9 +261,9 @@ gh secret set AZURE_FUNCTION_APP_NAME --env prod --body "$PROD_FA"
 
 The Bicep templates create the Key Vault with **placeholder values**. You must replace them with real secrets.
 
-### 4.1 Add IFTTT Webhook Key
+### 4.1 Add TP-Link Credentials
 
-1. Get your IFTTT key from [maker.ifttt.com/use/](https://maker.ifttt.com/use/) — it's the long string after `/use/` on that page.
+1. Get your TP-Link service account email and password.
 
 ```bash
 KEYVAULT_NAME=$(az deployment group show -g skeeter-switch-dev-rg --name main \
@@ -271,8 +271,13 @@ KEYVAULT_NAME=$(az deployment group show -g skeeter-switch-dev-rg --name main \
 
 az keyvault secret set \
   --vault-name "$KEYVAULT_NAME" \
-  --name "ifttt-key" \
-  --value "<your-ifttt-webhook-key>"
+  --name "tplink-username" \
+  --value "<your-tplink-service-account-email>"
+
+az keyvault secret set \
+  --vault-name "$KEYVAULT_NAME" \
+  --name "tplink-password" \
+  --value "<your-tplink-service-account-password>"
 ```
 
 Repeat for prod:
@@ -283,8 +288,13 @@ KEYVAULT_NAME=$(az deployment group show -g skeeter-switch-prod-rg --name main \
 
 az keyvault secret set \
   --vault-name "$KEYVAULT_NAME" \
-  --name "ifttt-key" \
-  --value "<your-ifttt-webhook-key>"
+  --name "tplink-username" \
+  --value "<your-tplink-service-account-email>"
+
+az keyvault secret set \
+  --vault-name "$KEYVAULT_NAME" \
+  --name "tplink-password" \
+  --value "<your-tplink-service-account-password>"
 ```
 
 ### 4.2 Add Azure Maps Subscription Key
@@ -299,7 +309,8 @@ az keyvault secret set \
 ```
 
 > **Secret names are case-sensitive.** The Function App's app settings reference these exact names:
-> - `ifttt-key` → read via `IFTTT_KEY` app setting
+> - `tplink-username` → read via `TPLINK_USERNAME` app setting
+> - `tplink-password` → read via `TPLINK_PASSWORD` app setting
 > - `azure-maps-subscription-key` → read via `AZURE_MAPS_SUBSCRIPTION_KEY` app setting
 
 ### 4.3 Verify Managed Identity Can Read Secrets
@@ -308,7 +319,7 @@ After the Function App is deployed (Phase 6), verify Key Vault references resolv
 
 **Azure Portal** → **App Services** → `skeeter-switch-{env}-func-{suffix}` → **Configuration** → **Application settings**
 
-Check that `IFTTT_KEY` and `AZURE_MAPS_SUBSCRIPTION_KEY` show a green checkmark (Key Vault reference resolved), not `Key Vault reference is not set correctly`.
+Check that `TPLINK_USERNAME`, `TPLINK_PASSWORD`, and `AZURE_MAPS_SUBSCRIPTION_KEY` show a green checkmark (Key Vault reference resolved), not `Key Vault reference is not set correctly`.
 
 If they show an error:
 1. Verify the Managed Identity has the `Key Vault Secrets User` role: **Azure Portal** → Key Vault → **Access control (IAM)** → **Role assignments** → confirm the identity `skeeter-switch-{env}-identity` appears with role `Key Vault Secrets User`
@@ -497,13 +508,26 @@ az functionapp show \
 4. You should land on the dashboard (not a 401/403 page)
 5. Visit `https://<swa-hostname>/.auth/me` — confirm your claims are present and `userRoles` includes `"authenticated"`
 
-### 7.3 Trigger a Manual Evaluation
+### 7.3 Trigger a Manual Evaluation and Verify Device Toggle
 
-After auth is working, use the dashboard UI's **Force Evaluate** button, or call the API:
+After auth is working, use the dashboard UI's **Force Evaluate** button or call the API:
 
 ```bash
-# Get a token via the SWA /.auth/me approach — or test through the dashboard
-# The dashboard's POST /api/evaluate button triggers this
+# Via dashboard: click the "Force Evaluate" button, which calls POST /api/evaluate
+
+# Or via API (requires auth token from SWA)
+# The backend will attempt to toggle the Kasa device if decision logic says to do so
+```
+
+**Verify TP-Link API communication:**
+
+Use `POST /api/command` with a manual override to test the device toggle (requires auth):
+
+```bash
+# Request body: { "state": "on" }
+# This calls toggleDevice('on', 'skeeter-switch', false) directly
+
+# Check Application Insights logs for the TP-Link API response
 ```
 
 **Azure Portal** → **Application Insights** → `skeeter-switch-{env}-appinsights` → **Logs** → run:
@@ -511,14 +535,20 @@ After auth is working, use the dashboard UI's **Force Evaluate** button, or call
 ```kusto
 traces
 | where timestamp > ago(5m)
+| where message contains "kasa" or message contains "toggleDevice"
 | order by timestamp desc
 ```
 
-You should see evaluation log entries.
+You should see TP-Link API call results (success or error details).
+
+### 7.4 Verify TP-Link Device Response
+
+1. Manual test: Use `POST /api/command` with `{ "state": "on" }` to turn the device on (dryRun is false in prod)
+2. Watch the physical EP40 plug — it should switch on within 5–10 seconds
+3. Check Application Insights for the TP-Link API response log (status code, response body)
+4. Use `POST /api/command` with `{ "state": "off" }` to verify OFF command also works
 
 ### 7.4 Check Application Insights for Telemetry
-
-**Azure Portal** → **Application Insights** → `skeeter-switch-{env}-appinsights` → **Overview**
 
 - **Live Metrics**: Should show incoming requests when you interact with the app
 - **Failures**: Should show 0 failures
@@ -533,62 +563,60 @@ You should see:
 - `skeeter-switch-{env}-func-{suffix}-webhook-failure-alert` (severity 1)
 - `skeeter-switch-{env}-func-{suffix}-heartbeat-alert` (severity 1)
 
----
+## Phase 8: TP-Link Kasa Device Verification
 
-## Phase 8: IFTTT Configuration
+### 8.1 Verify Device Alias
 
-### 8.1 Create the `skeeter_switch_on` Applet
+Confirm that the device alias in the Kasa app matches the `KASA_DEVICE_ALIAS` environment variable (default: `'skeeter-switch'`):
 
-1. Go to [ifttt.com/create](https://ifttt.com/create)
-2. **If This** → search for **Webhooks** → select **Receive a web request**
-3. **Event Name:** `skeeter_switch_on` (must match exactly — this is the value from `prod.bicepparam`)
-4. Click **Create trigger**
-5. **Then That** → search for **Kasa** → select **Turn on**
-6. **Device:** select your EP40 smart plug
-7. Click **Create action**
-8. **Applet title:** `Skeeter Switch ON`
-9. Click **Finish**
+1. Open the Kasa app and navigate to **Devices**
+2. Select your EP40 smart plug
+3. Tap **Edit** → check the device **Name/Alias** field
+4. If it differs from `'skeeter-switch'`, either rename it in the app or update `KASA_DEVICE_ALIAS` in Function App settings (Phase 6.3 / Portal)
 
-### 8.2 Create the `skeeter_switch_off` Applet
+### 8.2 Test TP-Link API Connectivity
 
-1. Repeat steps 1–9 above with:
-   - **Event Name:** `skeeter_switch_off`
-   - **Then That:** Kasa → **Turn off** → same EP40 device
-   - **Applet title:** `Skeeter Switch OFF`
-
-### 8.3 Get Your Webhook Key and Store in Key Vault
-
-1. Go to [maker.ifttt.com/use/](https://maker.ifttt.com/use/)
-2. Your webhook key is the string shown on the page (the part after `/use/` in the URL)
-3. Store it in Key Vault (if not already done in Phase 4.1):
+Use the dashboard or API to force a device toggle:
 
 ```bash
-az keyvault secret set \
-  --vault-name "<prod-keyvault-name>" \
-  --name "ifttt-key" \
-  --value "<your-webhook-key>"
+# Dashboard: Click "Force Evaluate" button, which triggers the timer logic
+# Or use POST /api/command: { "state": "on" } to force device ON
+
+# The Function App uses tplink-cloud-api to find the device by alias and toggle it
 ```
 
-### 8.4 Test Webhooks Manually
+Monitor Application Insights for:
+- `toggleDevice` trace logs — should show "kasa:on" or "kasa:off" on success
+- Any error logs — TP-Link API failures, device not found, authentication failures
 
-Trigger the ON webhook manually to verify the plug turns on:
+### 8.3 Troubleshooting TP-Link Device Connection
+
+If the device doesn't toggle:
+
+1. **Device not found error:** Verify the device alias in the Kasa app matches `KASA_DEVICE_ALIAS` exactly (case-sensitive)
+2. **Authentication error:** Verify `tplink-username` and `tplink-password` secrets in Key Vault are correct
+3. **Kasa app offline:** Open the Kasa app and confirm the EP40 is online and responsive
+4. **TP-Link Cloud API unavailable:** This is an unofficial API (tplink-cloud-api npm package). Monitor the package repo for breaking changes. Fallback: deploy a local Raspberry Pi bridge (see architectural decisions)
+
+### 8.4 Manual Test via API (Production Ready)
 
 ```bash
-IFTTT_KEY="<your-webhook-key>"
+# Get SWA URL and auth token
+SWA_HOST="<your-swa-hostname>"
 
 # Test ON
-curl -X POST "https://maker.ifttt.com/trigger/skeeter_switch_on/with/key/${IFTTT_KEY}"
-# Expected: "Congratulations! You've fired the skeeter_switch_on event"
+curl -X POST "https://${SWA_HOST}/api/command" \
+  -H "Content-Type: application/json" \
+  -d '{"state":"on"}' \
+  # Auth header added by SWA; if testing locally, use dryRun=true in dev
 
 # Test OFF
-curl -X POST "https://maker.ifttt.com/trigger/skeeter_switch_off/with/key/${IFTTT_KEY}"
+curl -X POST "https://${SWA_HOST}/api/command" \
+  -H "Content-Type: application/json" \
+  -d '{"state":"off"}'
 ```
 
-The EP40 should physically switch on/off within ~5 seconds. If not:
-- Confirm the EP40 is connected to the Kasa app and the device name matches what you selected in the applet
-- Open the IFTTT app and check the applet's activity log
-
----
+The EP40 should toggle on/off within ~5 seconds. Check Application Insights for the TP-Link API response.
 
 ## Phase 9: Entra Conditional Access MFA (one-time)
 
@@ -694,7 +722,7 @@ az role assignment create \
 
 1. Confirm Managed Identity has `Key Vault Secrets User` role: **Portal** → Key Vault → **Access control (IAM)** → **Role assignments**
 2. Confirm `keyVaultReferenceIdentity` is set: **Portal** → Function App → **Identity** → **User assigned** tab — your identity should be listed
-3. Confirm secret names are exactly `ifttt-key` and `azure-maps-subscription-key`
+3. Confirm secret names are exactly `tplink-username`, `tplink-password`, and `azure-maps-subscription-key`
 4. Confirm `AZURE_CLIENT_ID` app setting in the Function App matches the Managed Identity's client ID (not the GitHub Actions app)
 
 ### SWA auth redirect loop
@@ -713,12 +741,14 @@ Usually caused by incorrect redirect URI. Verify:
 
 **Portal** → **App Services** → Function App → **Configuration** → **Application settings** → find `DRY_RUN` → value should be `false`. If it says `true`, your prod deployment used the wrong parameter file. Re-run `infra-deploy.yml` with `environment=prod` which uses `prod.bicepparam` (`dryRun = false`).
 
-### Webhooks fire but EP40 doesn't respond
+### TP-Link Kasa device doesn't toggle
 
-- Check IFTTT activity log for the applet — did it trigger?
-- Verify the Kasa EP40 is online in the Kasa app
-- Test the webhook manually (Phase 8.4)
-- Confirm the IFTTT event name matches exactly: `skeeter_switch_on` / `skeeter_switch_off`
+- Check Application Insights logs for `toggleDevice` or `kasa` traces — was the API call made?
+- Verify the device alias in the Kasa app matches `KASA_DEVICE_ALIAS` exactly (case-sensitive)
+- Verify `tplink-username` and `tplink-password` secrets are set and correct
+- Confirm the EP40 is online in the Kasa app
+- Test manually via `POST /api/command` with dryRun=false to see the exact TP-Link API response
+- Check if the `tplink-cloud-api` npm package has breaking changes (unofficial API)
 
 ### Static Web App deployment token invalid
 
