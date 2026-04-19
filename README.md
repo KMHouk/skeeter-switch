@@ -244,7 +244,7 @@ gh secret set AZURE_SUBSCRIPTION_ID --body "<subscriptionId>"
 ### Step 3: Deploy Infrastructure
 
 ```bash
-gh workflow run infra-deploy.yml -f environment=dev
+gh workflow run infra-deploy.yml -f environment=prod
 ```
 
 ### Step 4: Add Key Vault Secrets
