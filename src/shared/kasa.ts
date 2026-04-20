@@ -105,11 +105,72 @@ async function setRelayState(
   await passthroughCommand(device, termId, token, command);
 }
 
-const MAX_RETRIES = 4;
-const BASE_DELAY_MS = 1000;
+const MAX_RETRIES = 2;
+const BASE_DELAY_MS = 500;
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Cache TP-Link session and device lookup to avoid re-login + re-scan on every call
+const SESSION_TTL_MS = 10 * 60 * 1000; // 10 minutes
+let cachedSession: {
+  termId: string;
+  token: string;
+  device: DeviceInfo;
+  childId?: string;
+  alias: string;
+  cachedAt: number;
+} | null = null;
+
+function isSessionValid(alias: string): boolean {
+  return (
+    cachedSession !== null &&
+    cachedSession.alias.toLowerCase() === alias.toLowerCase() &&
+    Date.now() - cachedSession.cachedAt < SESSION_TTL_MS
+  );
+}
+
+async function getOrCreateSession(
+  username: string,
+  password: string,
+  deviceAlias: string,
+): Promise<{ termId: string; token: string; device: DeviceInfo; childId?: string }> {
+  if (isSessionValid(deviceAlias)) {
+    return cachedSession!;
+  }
+
+  const termId = randomUUID();
+  const token = await tplinkLogin(username, password, termId);
+  const devices = await getDeviceList(termId, token);
+
+  let targetDevice: DeviceInfo | undefined;
+  let targetChildId: string | undefined;
+
+  for (const device of devices) {
+    if (device.alias.toLowerCase() === deviceAlias.toLowerCase()) {
+      targetDevice = device;
+      break;
+    }
+    const sysInfo = await getSysInfo(device, termId, token);
+    if (sysInfo.children) {
+      const child = sysInfo.children.find(
+        (c) => c.alias.toLowerCase() === deviceAlias.toLowerCase(),
+      );
+      if (child) {
+        targetDevice = device;
+        targetChildId = child.id;
+        break;
+      }
+    }
+  }
+
+  if (!targetDevice) {
+    throw new Error(`Device with alias "${deviceAlias}" not found in TP-Link account`);
+  }
+
+  cachedSession = { termId, token, device: targetDevice, childId: targetChildId, alias: deviceAlias, cachedAt: Date.now() };
+  return cachedSession;
 }
 
 export async function toggleDevice(state: 'on' | 'off', deviceAlias: string, dryRun: boolean): Promise<WebhookResult> {
@@ -124,38 +185,13 @@ export async function toggleDevice(state: 'on' | 'off', deviceAlias: string, dry
   for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
     const start = Date.now();
     try {
-      const termId = randomUUID();
-      const token = await tplinkLogin(credentials.username, credentials.password, termId);
-      const devices = await getDeviceList(termId, token);
-
-      let targetDevice: DeviceInfo | undefined;
-      let targetChildId: string | undefined;
-
-      for (const device of devices) {
-        // Match by parent alias
-        if (device.alias.toLowerCase() === deviceAlias.toLowerCase()) {
-          targetDevice = device;
-          break;
-        }
-        // Check children (multi-outlet devices like EP40)
-        const sysInfo = await getSysInfo(device, termId, token);
-        if (sysInfo.children) {
-          const child = sysInfo.children.find(
-            (c) => c.alias.toLowerCase() === deviceAlias.toLowerCase(),
-          );
-          if (child) {
-            targetDevice = device;
-            targetChildId = child.id;
-            break;
-          }
-        }
+      // Invalidate cache on retry (session may be stale)
+      if (attempt > 0) {
+        cachedSession = null;
       }
 
-      if (!targetDevice) {
-        throw new Error(`Device with alias "${deviceAlias}" not found in TP-Link account`);
-      }
-
-      await setRelayState(targetDevice, termId, token, state === 'on' ? 1 : 0, targetChildId);
+      const session = await getOrCreateSession(credentials.username, credentials.password, deviceAlias);
+      await setRelayState(session.device, session.termId, session.token, state === 'on' ? 1 : 0, session.childId);
 
       lastLatency = Date.now() - start;
       return {
@@ -168,6 +204,7 @@ export async function toggleDevice(state: 'on' | 'off', deviceAlias: string, dry
     } catch (err) {
       lastLatency = Date.now() - start;
       lastError = err instanceof Error ? err.message : 'Unknown Kasa API error';
+      cachedSession = null; // Clear cache on any error
     }
 
     if (attempt < MAX_RETRIES - 1) {
