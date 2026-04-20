@@ -10,8 +10,8 @@ const DEFAULT_CONFIG: AppConfig = {
   debounceMinutes: 15,
   pollIntervalMinutes: 5,
   location: {
-    lat: parseFloat(process.env.LOCATION_LAT || '38.8816'),
-    lon: parseFloat(process.env.LOCATION_LON || '-77.1311'),
+    lat: parseFloat(process.env.LOCATION_LAT || '38.88'),
+    lon: parseFloat(process.env.LOCATION_LON || '-77.13'),
   },
   weatherProvider: 'azure-maps',
   dryRun: process.env.DRY_RUN === 'true',

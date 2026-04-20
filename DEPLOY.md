@@ -1,7 +1,7 @@
 # skeeter-switch — Deployment Runbook
 
 > One-time setup + ongoing deploy instructions for the skeeter-switch Azure production system.
-> Location: North Quintana St, Arlington VA 22205 | Time zone: America/New_York
+> Location: Arlington, VA | Time zone: America/New_York
 
 ## Prerequisites
 
