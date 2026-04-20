@@ -45,6 +45,8 @@ export const DecisionPanel = ({ decision, config, isLoading, error, onRetry }: D
     ? `${config.runWindowStart}–${config.runWindowEnd}`
     : 'configured window';
   const running = decision.desiredState === 'on';
+  const tempFloor = config?.temperatureFloorF ?? null;
+  const tempOk = tempFloor === null || decision.weather.temperatureF >= tempFloor;
 
   return (
     <div className="card">
@@ -52,6 +54,11 @@ export const DecisionPanel = ({ decision, config, isLoading, error, onRetry }: D
       <div style={{ display: 'grid', gap: '0.4rem' }}>
         <div>
           {indicator(decision.withinTimeWindow)} Within time window ({windowLabel})
+        </div>
+        <div>
+          {indicator(tempOk)}{' '}
+          Temperature {Math.round(decision.weather.temperatureF)}°F
+          {tempFloor !== null ? ` (floor ${tempFloor}°F — mosquitoes dormant below this)` : ''}
         </div>
         <div>
           {indicator(decision.weatherOk)}{' '}

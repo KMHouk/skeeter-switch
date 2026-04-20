@@ -46,6 +46,7 @@ export const WeatherPanel = ({ weather, isLoading, error, onRetry }: WeatherPane
       <div className="card-header">Weather</div>
       <div style={{ display: 'grid', gap: '0.4rem' }}>
         <div>🌤 {weather.description}</div>
+        <div>🌡 Temperature: {Math.round(weather.temperatureF)}°F</div>
         <div>💧 Precip probability: {Math.round(weather.precipProbability)}%</div>
         <div>💨 Wind: {Math.round(weather.windSpeedMph)} mph</div>
         <div title={format(fetched, 'PPpp')}>📍 Fetched: {formatDistanceToNow(fetched, { addSuffix: true })}</div>
