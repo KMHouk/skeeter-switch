@@ -1,8 +1,9 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { isAuthError, requireAuth } from '../../shared/auth';
 import { getCorsHeaders } from '../../shared/cors';
-import { clearOverride, logEvent, setOverride, updateState } from '../../shared/storage';
-import { OverrideRecord, OverrideState } from '../../shared/types';
+import { toggleDevice } from '../../shared/kasa';
+import { clearOverride, getConfig, logEvent, setOverride, updateLastDecision, updateState } from '../../shared/storage';
+import { OverrideRecord, OverrideState, PowerState } from '../../shared/types';
 
 const corsHeaders = getCorsHeaders('POST,OPTIONS');
 
@@ -35,6 +36,17 @@ app.http('override', {
           lastResult: null,
           lastError: null,
         });
+        await updateLastDecision({
+          timestamp,
+          desiredState: 'off',
+          reasons: ['Override cleared — returned to AUTO.'],
+          weatherOk: true,
+          withinTimeWindow: false,
+          debounceOk: true,
+          overrideActive: false,
+          weather: { currentlyRaining: false, precipProbability: 0, windSpeedMph: 0, temperatureF: 70, description: 'N/A', fetchedAt: timestamp },
+          dryRun: false,
+        });
         await logEvent({
           id: '',
           timestamp,
@@ -56,14 +68,33 @@ app.http('override', {
         setAt: timestamp,
       };
       await setOverride(override);
+
+      // Immediately toggle the device to match the override
+      const config = await getConfig();
+      const result = await toggleDevice(body.state as PowerState, config.kasaDeviceAlias, config.dryRun);
+      const lastResult = config.dryRun ? 'dry_run' : result.success ? 'success' : 'failure';
+      await updateState({
+        desiredState: body.state as PowerState,
+        lastCommandedState: body.state as PowerState,
+        lastCommandTime: timestamp,
+        lastResult,
+        lastError: result.success ? null : result.error ?? 'Override toggle failed',
+      });
       await logEvent({
         id: '',
         timestamp,
         type: 'override_set',
         desiredState: body.state,
-        success: true,
+        commandedState: body.state,
+        webhookEvent: `kasa:${body.state}`,
+        webhookStatusCode: result.statusCode,
+        webhookLatencyMs: result.latencyMs,
+        webhookRetries: result.retries,
+        success: result.success,
+        error: result.error,
+        dryRun: config.dryRun,
       });
-      return { status: 200, jsonBody: override, headers: corsHeaders };
+      return { status: 200, jsonBody: { ...override, toggleResult: result }, headers: corsHeaders };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown override error';
       console.error(JSON.stringify({ event: 'override_error', error: message }));

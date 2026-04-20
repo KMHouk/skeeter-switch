@@ -98,14 +98,14 @@ export const ManualControls = ({ onActionComplete }: ManualControlsProps) => {
             onClick={() => handleTempOverride('on')}
             disabled={isWorking}
           >
-            🟢 Force ON
+            🟢 Temporary ON
           </button>
           <button
             className="button button-danger"
             onClick={() => handleTempOverride('off')}
             disabled={isWorking}
           >
-            🔴 Force OFF
+            🔴 Temporary OFF
           </button>
           <button
             className="button"
