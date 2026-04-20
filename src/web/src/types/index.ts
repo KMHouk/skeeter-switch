@@ -21,6 +21,7 @@ export interface WeatherConditions {
   currentlyRaining: boolean;
   precipProbability: number;
   windSpeedMph: number;
+  temperatureF: number;
   description: string;
   fetchedAt: string;
 }
@@ -66,6 +67,7 @@ export interface AppConfig {
   timezone: string;
   precipProbThreshold: number;
   windSpeedThreshold: number;
+  temperatureFloorF: number;
   debounceMinutes: number;
   pollIntervalMinutes: number;
   location: { lat: number; lon: number };
