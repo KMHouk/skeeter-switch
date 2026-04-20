@@ -276,13 +276,24 @@ az keyvault secret set \
 > - `tplink-password` → read via `TPLINK_PASSWORD` app setting
 > - `azure-maps-subscription-key` → read via `AZURE_MAPS_SUBSCRIPTION_KEY` app setting
 
+> ⚠️ **Known issue — Key Vault reference caching:** Azure Function Apps can cache the resolved value of KV references indefinitely within an instance. If you rotate a secret in Key Vault, the Function App may continue using the old value even if the KV reference is version-less. **Workaround:** Set `AZURE_MAPS_SUBSCRIPTION_KEY` as a **direct app setting** (not a KV reference) if you encounter stale key issues:
+>
+> ```bash
+> az functionapp config appsettings set \
+>   --resource-group skeeter-switch-prod-rg \
+>   --name "$FA_NAME" \
+>   --settings "AZURE_MAPS_SUBSCRIPTION_KEY=$MAPS_KEY"
+> ```
+>
+> The code checks `process.env.AZURE_MAPS_SUBSCRIPTION_KEY` first and only falls back to Key Vault if the env var is empty.
+
 ### 4.3 Verify Managed Identity Can Read Secrets
 
 After the Function App is deployed (Phase 6), verify Key Vault references resolve:
 
 **Azure Portal** → **App Services** → `skeeter-switch-{env}-func-{suffix}` → **Configuration** → **Application settings**
 
-Check that `TPLINK_USERNAME`, `TPLINK_PASSWORD`, and `AZURE_MAPS_SUBSCRIPTION_KEY` show a green checkmark (Key Vault reference resolved), not `Key Vault reference is not set correctly`.
+Check that `TPLINK_USERNAME` and `TPLINK_PASSWORD` show a green checkmark (Key Vault reference resolved), not `Key Vault reference is not set correctly`. `AZURE_MAPS_SUBSCRIPTION_KEY` may be a direct value (see note above) — verify it has the correct key value.
 
 If they show an error:
 1. Verify the Managed Identity has the `Key Vault Secrets User` role: **Azure Portal** → Key Vault → **Access control (IAM)** → **Role assignments** → confirm the identity `skeeter-switch-{env}-identity` appears with role `Key Vault Secrets User`
@@ -312,6 +323,13 @@ Where `<your-swa-hostname>` is `staticWebAppDefaultHostname.value` from Phase 3.
 Click **Register**. Note:
 - **Application (client) ID** → this is `SWA_CLIENT_ID`
 - **Directory (tenant) ID** → this is `TENANT_ID`
+
+**Required Entra app configuration** (after registration):
+
+1. **Enable ID token issuance:** **Authentication** → **Implicit grant and hybrid flows** → check **ID tokens** → **Save**
+2. **Set token version to v2:** **Manifest** → set `"accessTokenAcceptedVersion": 2` → **Save**
+3. **Add optional claims:** **Token configuration** → **Add optional claim** → Token type: **ID** → check `email` and `preferred_username` → **Save** (accept the Graph permission prompt)
+4. **Grant API permissions:** **API permissions** → confirm `User.Read` (Microsoft Graph, delegated) is present → **Grant admin consent** if needed
 
 Create a client secret:
 **Certificates & secrets** → **New client secret** → Description: `swa-auth` → Expires: 24 months → **Add**
@@ -465,11 +483,11 @@ After auth is working, use the dashboard UI's **Force Evaluate** button or call 
 
 **Verify TP-Link API communication:**
 
-Use `POST /api/command` with a manual override to test the device toggle (requires auth):
+Use `POST /api/command` with a manual command to test the device toggle (requires auth):
 
 ```bash
 # Request body: { "state": "on" }
-# This calls toggleDevice('on', 'skeeter-switch', false) directly
+# This calls toggleDevice('on', 'skeeter-switch', false) via the direct TP-Link Cloud HTTP API
 
 # Check Application Insights logs for the TP-Link API response
 ```
@@ -488,11 +506,11 @@ You should see TP-Link API call results (success or error details).
 ### 7.4 Verify TP-Link Device Response
 
 1. Manual test: Use `POST /api/command` with `{ "state": "on" }` to turn the device on (dryRun is false in prod)
-2. Watch the physical EP40 plug — it should switch on within 5–10 seconds
+2. Watch the physical EP40 plug — it should switch on within ~2–5 seconds (first call after cold start may take ~5s; subsequent calls ~1–2s due to session caching)
 3. Check Application Insights for the TP-Link API response log (status code, response body)
 4. Use `POST /api/command` with `{ "state": "off" }` to verify OFF command also works
 
-### 7.4 Check Application Insights for Telemetry
+### 7.5 Check Application Insights for Telemetry
 
 - **Live Metrics**: Should show incoming requests when you interact with the app
 - **Failures**: Should show 0 failures
@@ -526,21 +544,26 @@ Use the dashboard or API to force a device toggle:
 # Dashboard: Click "Force Evaluate" button, which triggers the timer logic
 # Or use POST /api/command: { "state": "on" } to force device ON
 
-# The Function App uses tplink-cloud-api to find the device by alias and toggle it
+# The Function App uses a direct HTTP client (src/shared/kasa.ts) to call the
+# TP-Link Cloud API at wap.tplinkcloud.com. It authenticates, scans devices
+# by alias (including child devices on multi-outlet plugs like the EP40),
+# and sends relay on/off commands.
 ```
 
 Monitor Application Insights for:
 - `toggleDevice` trace logs — should show "kasa:on" or "kasa:off" on success
 - Any error logs — TP-Link API failures, device not found, authentication failures
 
+> **Session caching:** The TP-Link API client caches the login session (token, device info, child ID) for 10 minutes. First call after cache expiry or cold start takes ~3–5s (login + device scan + toggle). Subsequent calls within the cache window take ~1–2s.
+
 ### 8.3 Troubleshooting TP-Link Device Connection
 
 If the device doesn't toggle:
 
-1. **Device not found error:** Verify the device alias in the Kasa app matches `KASA_DEVICE_ALIAS` exactly (case-sensitive)
-2. **Authentication error:** Verify `tplink-username` and `tplink-password` secrets in Key Vault are correct
+1. **Device not found error:** Verify the device alias in the Kasa app matches `KASA_DEVICE_ALIAS` exactly (case-sensitive). For multi-outlet devices (like the EP40), the alias must match a **child outlet** name, not the parent device name.
+2. **Authentication error:** Verify `tplink-username` and `tplink-password` secrets in Key Vault are correct. The direct HTTP client uses `appType: "Kasa_Android"` and `appVer: "2.2.0.0"` — if TP-Link changes their API requirements, these values may need updating in `src/shared/kasa.ts`.
 3. **Kasa app offline:** Open the Kasa app and confirm the EP40 is online and responsive
-4. **TP-Link Cloud API unavailable:** This is an unofficial API (tplink-cloud-api npm package). Monitor the package repo for breaking changes. Fallback: deploy a local Raspberry Pi bridge (see architectural decisions)
+4. **TP-Link Cloud API unavailable:** The system calls `wap.tplinkcloud.com` directly via HTTP (no third-party npm package). If TP-Link changes their cloud API, update the implementation in `src/shared/kasa.ts`.
 
 ### 8.4 Manual Test via API (Production Ready)
 
@@ -560,7 +583,7 @@ curl -X POST "https://${SWA_HOST}/api/command" \
   -d '{"state":"off"}'
 ```
 
-The EP40 should toggle on/off within ~5 seconds. Check Application Insights for the TP-Link API response.
+The EP40 should toggle on/off within ~2–5 seconds (faster on subsequent calls due to session caching). Check Application Insights for the TP-Link API response.
 
 ---
 
@@ -572,7 +595,7 @@ After initial setup is complete, subsequent deploys are automated:
 
 | Changed files | Workflow triggered |
 |---|---|
-| `src/functions/**`, `src/shared/**`, `host.json`, `package.json`, `tsconfig.json` | `functions-deploy.yml` |
+| `src/functions/**`, `src/shared/**`, `src/index.ts`, `host.json`, `package.json`, `package-lock.json`, `tsconfig.json` | `functions-deploy.yml` |
 | `src/web/**` | `swa-deploy.yml` |
 
 ### Manual deploy (workflow dispatch)
@@ -644,11 +667,25 @@ Usually caused by incorrect redirect URI. Verify:
 ### TP-Link Kasa device doesn't toggle
 
 - Check Application Insights logs for `toggleDevice` or `kasa` traces — was the API call made?
-- Verify the device alias in the Kasa app matches `KASA_DEVICE_ALIAS` exactly (case-sensitive)
+- Verify the device alias in the Kasa app matches `KASA_DEVICE_ALIAS` exactly (case-sensitive). For multi-outlet EP40, the alias must match a **child outlet** name.
 - Verify `tplink-username` and `tplink-password` secrets are set and correct
 - Confirm the EP40 is online in the Kasa app
 - Test manually via `POST /api/command` with dryRun=false to see the exact TP-Link API response
-- Check if the `tplink-cloud-api` npm package has breaking changes (unofficial API)
+- The direct HTTP client calls `wap.tplinkcloud.com` — check if TP-Link has changed their cloud API. Update `src/shared/kasa.ts` if needed.
+
+### GitHub Actions functions-deploy times out (504)
+
+The `functions-deploy.yml` workflow can time out during `az functionapp deploy --type zip` on B1/Basic tier Function Apps if the deployment package is large (~50MB+ with node_modules). Workarounds:
+
+1. **Retry the workflow** — transient Kudu timeouts are common on shared/Basic plans
+2. **Manual VFS upload** — upload individual changed `.js` files via Kudu VFS API:
+   ```bash
+   TOKEN=$(az account get-access-token --query accessToken -o tsv)
+   curl -X PUT -H "Authorization: Bearer $TOKEN" -H "If-Match: *" \
+     --data-binary @dist/shared/kasa.js \
+     "https://<func-app>.scm.azurewebsites.net/api/vfs/site/wwwroot/dist/shared/kasa.js"
+   ```
+3. **Scale up temporarily** — use S1 plan during deploy, then scale back
 
 ### Static Web App deployment token invalid
 
