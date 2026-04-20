@@ -55,38 +55,57 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: Deploy to Function App
+      - name: Upload package via Kudu VFS
         run: |
-          az functionapp deploy \
+          TOKEN=$(az account get-access-token --query accessToken -o tsv)
+          KUDU="https://${{ secrets.AZURE_FUNCTION_APP_NAME }}.scm.azurewebsites.net"
+
+          echo "Uploading zip to /home/data/SitePackages/..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X PUT \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/octet-stream" \
+            -H "If-Match: *" \
+            --data-binary @functions-package.zip \
+            "$KUDU/api/vfs/data/SitePackages/functions-package.zip")
+          echo "Upload response: $HTTP_CODE"
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "ERROR: Upload failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          echo "Writing packagename.txt..."
+          HTTP_CODE=$(echo -n "functions-package.zip" | curl -s -o /dev/null -w "%{http_code}" -X PUT \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/octet-stream" \
+            -H "If-Match: *" \
+            --data-binary @- \
+            "$KUDU/api/vfs/data/SitePackages/packagename.txt")
+          echo "packagename.txt response: $HTTP_CODE"
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "ERROR: packagename.txt write failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+      - name: Restart and verify
+        run: |
+          echo "Restarting function app..."
+          az functionapp restart \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-            --name ${{ secrets.AZURE_FUNCTION_APP_NAME }} \
-            --src-path functions-package.zip \
-            --type zip \
-            --async true
-      - name: Wait for deployment to complete
-        run: |
-          echo "Waiting 60s for deployment to start..."
-          sleep 60
-          for i in $(seq 1 12); do
-            STATUS=$(az functionapp show \
+            --name ${{ secrets.AZURE_FUNCTION_APP_NAME }}
+          sleep 30
+
+          echo "Verifying functions are loaded..."
+          for i in $(seq 1 8); do
+            FUNCS=$(az functionapp function list \
               --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
               --name ${{ secrets.AZURE_FUNCTION_APP_NAME }} \
-              --query "state" -o tsv 2>/dev/null)
-            echo "Attempt $i/12: Function App state = $STATUS"
-            if [ "$STATUS" = "Running" ]; then
-              echo "Function App is running. Verifying functions are loaded..."
-              FUNCS=$(az functionapp function list \
-                --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-                --name ${{ secrets.AZURE_FUNCTION_APP_NAME }} \
-                --query "length(@)" -o tsv 2>/dev/null || echo "0")
-              echo "Functions loaded: $FUNCS"
-              if [ "$FUNCS" -gt "0" ]; then
-                echo "Deployment verified successfully!"
-                exit 0
-              fi
+              --query "length(@)" -o tsv 2>/dev/null || echo "0")
+            echo "Attempt $i/8: Functions loaded = $FUNCS"
+            if [ "$FUNCS" -gt "0" ]; then
+              echo "Deployment verified successfully!"
+              exit 0
             fi
-            echo "Waiting 15s before next check..."
             sleep 15
           done
-          echo "WARNING: Could not verify deployment within timeout. Check Azure Portal."
+          echo "WARNING: Functions not detected yet. Check Azure Portal."
           exit 0
