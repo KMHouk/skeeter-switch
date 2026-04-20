@@ -8,7 +8,7 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "lib": ["ES2022"],
-    "moduleResolution": "node"
+    "moduleResolution": "node10"
   },
   "include": ["src/index.ts", "src/functions/**/*", "src/shared/**/*", "src/__tests__/**/*"],
   "exclude": ["node_modules", "**/node_modules", "dist"]
