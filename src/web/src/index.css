@@ -149,10 +149,22 @@ button {
 .button {
   border: 1px solid var(--color-border);
   background: white;
+  color: #1e293b;
   padding: 0.5rem 0.9rem;
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
+  text-decoration: none;
+}
+
+.button-ghost {
+  background: transparent;
+  color: white;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.button-ghost:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .button-primary {

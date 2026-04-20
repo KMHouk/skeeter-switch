@@ -82,7 +82,7 @@ const App = () => {
         <div className="app-title">🦟 Skeeter Switch</div>
         <div className="app-user">
           <span>{displayName}</span>
-          <a className="button" href="/.auth/logout">
+          <a className="button button-ghost" href="/.auth/logout">
             Logout
           </a>
         </div>
