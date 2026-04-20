@@ -29,31 +29,42 @@ app.http('override', {
       }
       if (body.state === 'auto') {
         await clearOverride();
+        // Toggle the device OFF when clearing an override
+        const config = await getConfig();
+        const result = await toggleDevice('off', config.kasaDeviceAlias, config.dryRun);
+        const lastResult = config.dryRun ? 'dry_run' : result.success ? 'success' : 'failure';
         await updateState({
-          desiredState: null,
-          lastCommandedState: null,
-          lastCommandTime: null,
-          lastResult: null,
-          lastError: null,
+          desiredState: 'off' as PowerState,
+          lastCommandedState: 'off' as PowerState,
+          lastCommandTime: timestamp,
+          lastResult,
+          lastError: result.success ? null : result.error ?? 'Clear override toggle failed',
         });
         await updateLastDecision({
           timestamp,
           desiredState: 'off',
-          reasons: ['Override cleared — returned to AUTO.'],
+          reasons: ['Override cleared — returned to AUTO. Device toggled OFF.'],
           weatherOk: true,
           withinTimeWindow: false,
           debounceOk: true,
           overrideActive: false,
           weather: { currentlyRaining: false, precipProbability: 0, windSpeedMph: 0, temperatureF: 70, description: 'N/A', fetchedAt: timestamp },
-          dryRun: false,
+          dryRun: config.dryRun,
         });
         await logEvent({
           id: '',
           timestamp,
           type: 'override_set',
-          success: true,
+          commandedState: 'off',
+          webhookEvent: 'kasa:off',
+          webhookStatusCode: result.statusCode,
+          webhookLatencyMs: result.latencyMs,
+          webhookRetries: result.retries,
+          success: result.success,
+          error: result.error,
+          dryRun: config.dryRun,
         });
-        return { status: 200, jsonBody: null, headers: corsHeaders };
+        return { status: 200, jsonBody: { state: 'auto', toggleResult: result }, headers: corsHeaders };
       }
 
       const ttlMinutes = body.ttlMinutes ?? 60;
