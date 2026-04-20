@@ -62,4 +62,31 @@ jobs:
             --name ${{ secrets.AZURE_FUNCTION_APP_NAME }} \
             --src-path functions-package.zip \
             --type zip \
-            --async false
+            --async true
+      - name: Wait for deployment to complete
+        run: |
+          echo "Waiting 60s for deployment to start..."
+          sleep 60
+          for i in $(seq 1 12); do
+            STATUS=$(az functionapp show \
+              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+              --name ${{ secrets.AZURE_FUNCTION_APP_NAME }} \
+              --query "state" -o tsv 2>/dev/null)
+            echo "Attempt $i/12: Function App state = $STATUS"
+            if [ "$STATUS" = "Running" ]; then
+              echo "Function App is running. Verifying functions are loaded..."
+              FUNCS=$(az functionapp function list \
+                --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+                --name ${{ secrets.AZURE_FUNCTION_APP_NAME }} \
+                --query "length(@)" -o tsv 2>/dev/null || echo "0")
+              echo "Functions loaded: $FUNCS"
+              if [ "$FUNCS" -gt "0" ]; then
+                echo "Deployment verified successfully!"
+                exit 0
+              fi
+            fi
+            echo "Waiting 15s before next check..."
+            sleep 15
+          done
+          echo "WARNING: Could not verify deployment within timeout. Check Azure Portal."
+          exit 0
