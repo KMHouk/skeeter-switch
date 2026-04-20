@@ -85,6 +85,12 @@ export const CalendarView = ({ config }: CalendarViewProps) => {
           </button>
           <button className="button button-primary" onClick={refetch} disabled={isLoading}>
             Recalculate
+            <span className="help-icon" aria-label="What does Recalculate do?">
+              ?
+              <span className="tooltip">
+                Re-fetches the weather forecast and recomputes the planned ON/OFF schedule for this month based on current conditions, thresholds, and your run window.
+              </span>
+            </span>
           </button>
         </div>
       </div>
