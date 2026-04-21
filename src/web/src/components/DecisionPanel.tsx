@@ -1,7 +1,9 @@
-import { DecisionResult, AppConfig } from '../types';
+import { format, parseISO } from 'date-fns';
+import { DecisionResult, AppConfig, OverrideRecord } from '../types';
 
 interface DecisionPanelProps {
   decision: DecisionResult | null;
+  activeOverride: OverrideRecord | null;
   config: AppConfig | null;
   isLoading: boolean;
   error: string | null;
@@ -10,7 +12,7 @@ interface DecisionPanelProps {
 
 const indicator = (ok: boolean) => (ok ? '✅' : '❌');
 
-export const DecisionPanel = ({ decision, config, isLoading, error, onRetry }: DecisionPanelProps) => {
+export const DecisionPanel = ({ decision, activeOverride, config, isLoading, error, onRetry }: DecisionPanelProps) => {
   if (isLoading && !decision) {
     return (
       <div className="card">
@@ -44,13 +46,27 @@ export const DecisionPanel = ({ decision, config, isLoading, error, onRetry }: D
   const windowLabel = config
     ? `${config.runWindowStart}–${config.runWindowEnd}`
     : 'configured window';
-  const running = decision.desiredState === 'on';
+  const running = activeOverride ? activeOverride.state === 'on' : decision.desiredState === 'on';
   const tempFloor = config?.temperatureFloorF ?? null;
   const tempOk = tempFloor === null || decision.weather.temperatureF >= tempFloor;
 
   return (
     <div className="card">
       <div className="card-header">Decision Reasoning</div>
+      {activeOverride && (
+        <div style={{
+          background: '#fef9c3',
+          color: '#854d0e',
+          border: '1px solid #fde68a',
+          borderRadius: '8px',
+          padding: '0.6rem 0.9rem',
+          marginBottom: '0.75rem',
+          fontSize: '0.875rem',
+          fontWeight: 600,
+        }}>
+          ⚡ Override active — system commanded {activeOverride.state.toUpperCase()} until {format(parseISO(activeOverride.expiresAt), 'p')}. Conditions below reflect the last evaluation.
+        </div>
+      )}
       <div style={{ display: 'grid', gap: '0.4rem' }}>
         <div>
           {indicator(decision.withinTimeWindow)} Within time window ({windowLabel})
@@ -70,9 +86,13 @@ export const DecisionPanel = ({ decision, config, isLoading, error, onRetry }: D
           {indicator(decision.debounceOk)}{' '}
           {decision.debounceOk ? 'Debounce OK — enough time since last toggle' : 'Debounce blocking — too soon since last toggle'}
         </div>
-        <div>{indicator(!decision.overrideActive)} Override active: {decision.overrideActive ? 'YES' : 'NO'}</div>
+        <div>
+          {activeOverride ? '✅' : indicator(decision.overrideActive)}{' '}
+          Override active: {activeOverride ? `YES (${activeOverride.state.toUpperCase()} until ${format(parseISO(activeOverride.expiresAt), 'p')})` : 'NO'}
+        </div>
         <div>
           → Running: <strong>{running ? 'YES' : 'NO'}</strong>
+          {activeOverride && !running && <span className="muted"> (override commanded OFF)</span>}
         </div>
         {decision.dryRun && <div className="muted">Dry run mode is active for this evaluation.</div>}
       </div>

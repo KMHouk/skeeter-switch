@@ -104,7 +104,7 @@ const App = () => {
       </header>
       <div className="app-main">
         <HeroGraphic
-          isOn={status?.lastDecision?.desiredState === 'on'}
+          isOn={status?.state?.desiredState === 'on'}
           winterMode={Boolean(config?.winterMode)}
         />
         <DryRunBanner isDryRun={isDryRun} />
@@ -119,6 +119,7 @@ const App = () => {
           />
           <DecisionPanel
             decision={status?.lastDecision ?? null}
+            activeOverride={status?.state?.activeOverride ?? null}
             config={config}
             isLoading={statusLoading}
             error={statusError}
