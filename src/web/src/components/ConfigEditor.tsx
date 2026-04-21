@@ -209,6 +209,9 @@ export const ConfigEditor = ({
             />
             &nbsp;Dry Run
           </label>
+          <p style={{ margin: '0.25rem 0 0 1.5rem', fontSize: '0.8rem', color: 'var(--text-muted, #6b7280)', lineHeight: 1.4 }}>
+            The system evaluates conditions and logs decisions normally, but skips sending the command to the smart plug. Use this to observe behavior safely without the device turning on or off.
+          </p>
         </div>
         <div className="form-row">
           <label>Kasa Device Alias</label>
