@@ -27,7 +27,26 @@ interface DayRuntime {
   isToday: boolean;
 }
 
-const MAX_CHART_HOURS = 12;
+function computeRunWindowHours(config: AppConfig | null): number {
+  if (!config) return 12;
+  const [sh, sm] = config.runWindowStart.split(':').map(Number);
+  const [eh, em] = config.runWindowEnd.split(':').map(Number);
+  const startMin = sh * 60 + sm;
+  const endMin = eh * 60 + em;
+  const windowMin = startMin <= endMin ? endMin - startMin : 1440 - startMin + endMin;
+  return Math.ceil(windowMin / 60);
+}
+
+function chartScale(windowHours: number): { max: number; ticks: number[] } {
+  // Round up to next multiple of 4 for clean axis labels
+  const max = Math.max(Math.ceil(windowHours / 4) * 4, 8);
+  const ticks: number[] = [];
+  for (let t = 0; t <= max; t += Math.max(Math.floor(max / 4), 1)) {
+    ticks.push(t);
+  }
+  if (ticks[ticks.length - 1] !== max) ticks.push(max);
+  return { max, ticks };
+}
 
 const computeDayRuntimes = (blocks: PlanBlock[], days: Date[]): DayRuntime[] => {
   return days.map((day) => {
@@ -74,6 +93,11 @@ export const RuntimeChart = ({ config }: RuntimeChartProps) => {
   }, [currentMonth]);
 
   const { blocks, isLoading, error, refetch } = useCalendar(range, config);
+
+  const { max: maxChartHours, ticks: yTicks } = useMemo(
+    () => chartScale(computeRunWindowHours(config)),
+    [config]
+  );
 
   const dayRuntimes = useMemo(() => {
     const days = eachDayOfInterval(range);
@@ -175,8 +199,8 @@ export const RuntimeChart = ({ config }: RuntimeChartProps) => {
           <rect x="0" y="0" width="800" height="260" fill="#fafafa" />
           <line x1="60" y1="40" x2="60" y2="240" stroke="#e2e8f0" strokeWidth="1" />
           <line x1="60" y1="240" x2="780" y2="240" stroke="#e2e8f0" strokeWidth="1" />
-          {[0, 3, 6, 9, 12].map((hour) => {
-            const y = 240 - (hour / MAX_CHART_HOURS) * 200;
+          {yTicks.map((hour) => {
+            const y = 240 - (hour / maxChartHours) * 200;
             return (
               <g key={hour}>
                 <line x1="55" y1={y} x2="780" y2={y} stroke="#e2e8f0" strokeWidth="1" opacity="0.5" />
@@ -187,7 +211,7 @@ export const RuntimeChart = ({ config }: RuntimeChartProps) => {
             );
           })}
           {dayRuntimes.map((day, index) => {
-            const barHeight = Math.min((day.runtimeHours / MAX_CHART_HOURS) * 200, 200);
+            const barHeight = Math.min((day.runtimeHours / maxChartHours) * 200, 200);
             const x = 80 + index * (700 / dayRuntimes.length);
             const barWidth = Math.max(700 / dayRuntimes.length - 4, 8);
             const y = 240 - barHeight;
