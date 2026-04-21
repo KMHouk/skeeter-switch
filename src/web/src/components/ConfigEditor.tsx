@@ -219,6 +219,16 @@ export const ConfigEditor = ({
           />
         </div>
       </div>
+      <div className="form-row" style={{ marginTop: '1rem', padding: '0.75rem', background: '#fef9c3', border: '1px solid #fde68a', borderRadius: '8px' }}>
+        <label>
+          <input
+            type="checkbox"
+            checked={draft.winterMode}
+            onChange={(event) => handleChange('winterMode', event.target.checked)}
+          />
+          &nbsp;🏠 Winter Mode — Suspend all automation when device is stored for winter.
+        </label>
+      </div>
       <div style={{ marginTop: '1rem' }}>
         <button className="button button-primary" onClick={handleSave} disabled={isSaving}>
           {isSaving ? 'Saving...' : 'Save Configuration'}

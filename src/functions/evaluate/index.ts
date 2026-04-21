@@ -6,7 +6,8 @@ app.timer('evaluate', {
   schedule: '0 */5 * * * *',
   handler: async (_timer: Timer, _context: InvocationContext): Promise<void> => {
     try {
-      await runEvaluationCycle('timer');
+      const outcome = await runEvaluationCycle('timer');
+      if (!outcome) return;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown evaluation error';
       const timestamp = new Date().toISOString();

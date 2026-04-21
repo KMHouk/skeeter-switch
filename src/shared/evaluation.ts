@@ -5,6 +5,7 @@ import {
   getConfig,
   getState,
   logEvent,
+  updateCo2Runtime,
   updateLastDecision,
   updateState,
   updateSystemHealth,
@@ -16,9 +17,14 @@ export interface EvaluationOutcome {
   webhookResult: WebhookResult | null;
 }
 
-export async function runEvaluationCycle(reason: string): Promise<EvaluationOutcome> {
+export async function runEvaluationCycle(reason: string): Promise<EvaluationOutcome | null> {
   const now = new Date();
   const config = await getConfig();
+
+  if (config.winterMode) {
+    console.log(JSON.stringify({ event: 'winter_mode_skip', reason }));
+    return null;
+  }
   const weather = await fetchWeather(config);
   await updateSystemHealth({ lastWeatherFetchAt: weather.fetchedAt, alertStatus: 'ok' });
 
@@ -68,6 +74,10 @@ export async function runEvaluationCycle(reason: string): Promise<EvaluationOutc
     reasons: decision.reasons,
     dryRun: decision.dryRun,
   });
+
+  if (decision.desiredState === 'on') {
+    await updateCo2Runtime(config.pollIntervalMinutes / 60);
+  }
 
   console.log(JSON.stringify({ event: 'evaluation_cycle', reason, decision, webhookResult }));
   return { decision, webhookResult };

@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { getDefaultConfig } from './config';
 import {
   AppConfig,
+  Co2Tracker,
   DecisionResult,
   EventLogEntry,
   OverrideRecord,
@@ -21,6 +22,9 @@ interface StateEntity {
   lastEvaluationAt?: string | null;
   lastWeatherFetchAt?: string | null;
   alertStatus?: 'ok' | 'warning' | 'error';
+  co2RuntimeHours?: number;
+  co2LastSwapAt?: string;
+  co2LastUpdatedAt?: string;
 }
 
 interface OverrideEntity {
@@ -40,6 +44,7 @@ interface ConfigEntity {
   timezone: string;
   precipProbThreshold: number;
   windSpeedThreshold: number;
+  temperatureFloorF: number;
   debounceMinutes: number;
   pollIntervalMinutes: number;
   locationLat: number;
@@ -47,6 +52,7 @@ interface ConfigEntity {
   weatherProvider: AppConfig['weatherProvider'];
   dryRun: boolean;
   kasaDeviceAlias: string;
+  winterMode: boolean;
 }
 
 interface EventLogEntity {
@@ -145,6 +151,7 @@ function toConfig(entity: ConfigEntity | null): AppConfig {
     timezone: entity.timezone ?? defaults.timezone,
     precipProbThreshold: entity.precipProbThreshold ?? defaults.precipProbThreshold,
     windSpeedThreshold: entity.windSpeedThreshold ?? defaults.windSpeedThreshold,
+    temperatureFloorF: entity.temperatureFloorF ?? defaults.temperatureFloorF,
     debounceMinutes: entity.debounceMinutes ?? defaults.debounceMinutes,
     pollIntervalMinutes: entity.pollIntervalMinutes ?? defaults.pollIntervalMinutes,
     location: {
@@ -154,6 +161,7 @@ function toConfig(entity: ConfigEntity | null): AppConfig {
     weatherProvider: entity.weatherProvider ?? defaults.weatherProvider,
     dryRun: entity.dryRun ?? defaults.dryRun,
     kasaDeviceAlias: entity.kasaDeviceAlias ?? defaults.kasaDeviceAlias,
+    winterMode: entity.winterMode ?? defaults.winterMode,
   };
 }
 
@@ -166,6 +174,7 @@ function toConfigEntity(config: AppConfig): ConfigEntity {
     timezone: config.timezone,
     precipProbThreshold: config.precipProbThreshold,
     windSpeedThreshold: config.windSpeedThreshold,
+    temperatureFloorF: config.temperatureFloorF,
     debounceMinutes: config.debounceMinutes,
     pollIntervalMinutes: config.pollIntervalMinutes,
     locationLat: config.location.lat,
@@ -173,6 +182,7 @@ function toConfigEntity(config: AppConfig): ConfigEntity {
     weatherProvider: config.weatherProvider,
     dryRun: config.dryRun,
     kasaDeviceAlias: config.kasaDeviceAlias,
+    winterMode: config.winterMode,
   };
 }
 
@@ -422,4 +432,70 @@ export async function getSystemHealth(): Promise<SystemHealth> {
     }
     throw err;
   }
+}
+
+export async function getCo2Tracker(): Promise<Co2Tracker | null> {
+  const client = await getTableClient(STATE_TABLE);
+  try {
+    const entity = await client.getEntity<StateEntity>(STATE_PARTITION, STATE_ROW);
+    if (!entity.co2LastSwapAt) {
+      return null;
+    }
+    return {
+      runtimeHoursSinceSwap: entity.co2RuntimeHours ?? 0,
+      lastSwapAt: entity.co2LastSwapAt,
+      lastUpdatedAt: entity.co2LastUpdatedAt ?? entity.co2LastSwapAt,
+    };
+  } catch (err) {
+    const error = err as { statusCode?: number };
+    if (error.statusCode === 404) {
+      return null;
+    }
+    throw err;
+  }
+}
+
+export async function updateCo2Runtime(additionalHours: number): Promise<void> {
+  const client = await getTableClient(STATE_TABLE);
+  try {
+    const entity = await client.getEntity<StateEntity>(STATE_PARTITION, STATE_ROW);
+    const currentHours = entity.co2RuntimeHours ?? 0;
+    const updatedEntity: StateEntity = {
+      partitionKey: STATE_PARTITION,
+      rowKey: STATE_ROW,
+      co2RuntimeHours: currentHours + additionalHours,
+      co2LastUpdatedAt: new Date().toISOString(),
+    };
+    if (!entity.co2LastSwapAt) {
+      updatedEntity.co2LastSwapAt = new Date().toISOString();
+    }
+    await client.upsertEntity(updatedEntity, 'Merge');
+  } catch (err) {
+    const error = err as { statusCode?: number };
+    if (error.statusCode === 404) {
+      const newEntity: StateEntity = {
+        partitionKey: STATE_PARTITION,
+        rowKey: STATE_ROW,
+        co2RuntimeHours: additionalHours,
+        co2LastSwapAt: new Date().toISOString(),
+        co2LastUpdatedAt: new Date().toISOString(),
+      };
+      await client.upsertEntity(newEntity, 'Merge');
+    } else {
+      throw err;
+    }
+  }
+}
+
+export async function resetCo2Tank(): Promise<void> {
+  const client = await getTableClient(STATE_TABLE);
+  const now = new Date().toISOString();
+  const entity: StateEntity = {
+    partitionKey: STATE_PARTITION,
+    rowKey: STATE_ROW,
+    co2RuntimeHours: 0,
+    co2LastSwapAt: now,
+    co2LastUpdatedAt: now,
+  };
+  await client.upsertEntity(entity, 'Merge');
 }

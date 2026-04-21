@@ -1,5 +1,6 @@
 import {
   AppConfig,
+  Co2Tracker,
   DecisionResult,
   EventLogEntry,
   OverrideState,
@@ -94,4 +95,9 @@ export const fetchLogs = async (limit = 50): Promise<EventLogEntry[]> => {
 export const fetchUserInfo = async (): Promise<UserInfo> => {
   const response = await fetch(buildUrl('/.auth/me'));
   return handleResponse<UserInfo>(response);
+};
+
+export const postCo2Reset = async (): Promise<{ success: boolean; tracker: Co2Tracker }> => {
+  const response = await fetch(buildUrl('/api/co2-reset'), { method: 'POST' });
+  return handleResponse<{ success: boolean; tracker: Co2Tracker }>(response);
 };

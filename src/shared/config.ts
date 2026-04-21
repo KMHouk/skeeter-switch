@@ -16,6 +16,7 @@ const DEFAULT_CONFIG: AppConfig = {
   weatherProvider: 'azure-maps',
   dryRun: process.env.DRY_RUN === 'true',
   kasaDeviceAlias: process.env.KASA_DEVICE_ALIAS || 'skeeter-switch',
+  winterMode: false,
 };
 
 export function getDefaultConfig(): AppConfig {

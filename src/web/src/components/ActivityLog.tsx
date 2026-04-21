@@ -11,6 +11,14 @@ const typeLabels: Record<EventLogEntry['type'], string> = {
   config_change: 'Config',
 };
 
+type LogFilter = 'all' | 'heartbeat' | 'actions';
+
+const FILTER_TYPES: Record<LogFilter, EventLogEntry['type'][]> = {
+  all: ['evaluation', 'webhook_call', 'override_set', 'manual_command', 'config_change'],
+  heartbeat: ['evaluation'],
+  actions: ['webhook_call', 'override_set', 'manual_command', 'config_change'],
+};
+
 const PAGE_SIZE = 30;
 
 export const ActivityLog = () => {
@@ -19,9 +27,11 @@ export const ActivityLog = () => {
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [filter, setFilter] = useState<LogFilter>('all');
 
-  const totalPages = Math.ceil(logs.length / PAGE_SIZE);
-  const pagedLogs = logs.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const filteredLogs = logs.filter((e) => FILTER_TYPES[filter].includes(e.type));
+  const totalPages = Math.ceil(filteredLogs.length / PAGE_SIZE);
+  const pagedLogs = filteredLogs.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const loadLogs = useCallback(async () => {
     setIsLoading(true);
@@ -50,9 +60,29 @@ export const ActivityLog = () => {
     <div className="card">
       <div className="calendar-header">
         <div className="card-header">Activity Log</div>
-        <button className="button" onClick={loadLogs} disabled={isLoading}>
-          Refresh
-        </button>
+        <div className="controls-row">
+          <button className="button" onClick={loadLogs} disabled={isLoading}>
+            Refresh
+          </button>
+          <button
+            className={`button ${filter === 'all' ? 'log-filter-active' : ''}`}
+            onClick={() => { setFilter('all'); setCurrentPage(1); }}
+          >
+            All ({FILTER_TYPES.all.reduce((count, type) => count + logs.filter(e => e.type === type).length, 0)})
+          </button>
+          <button
+            className={`button ${filter === 'heartbeat' ? 'log-filter-active' : ''}`}
+            onClick={() => { setFilter('heartbeat'); setCurrentPage(1); }}
+          >
+            Heartbeat ({logs.filter(e => e.type === 'evaluation').length})
+          </button>
+          <button
+            className={`button ${filter === 'actions' ? 'log-filter-active' : ''}`}
+            onClick={() => { setFilter('actions'); setCurrentPage(1); }}
+          >
+            Actions ({FILTER_TYPES.actions.reduce((count, type) => count + logs.filter(e => e.type === type).length, 0)})
+          </button>
+        </div>
       </div>
       {isLoading && logs.length === 0 && <div className="spinner" />}
       {error && (
@@ -63,8 +93,8 @@ export const ActivityLog = () => {
           </button>
         </div>
       )}
-      {!isLoading && !error && logs.length === 0 && <p className="muted">No activity yet.</p>}
-      {logs.length > 0 && (
+      {!isLoading && !error && filteredLogs.length === 0 && <p className="muted">No activity yet.</p>}
+      {filteredLogs.length > 0 && (
         <>
           <table className="log-table">
             <thead>

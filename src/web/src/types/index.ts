@@ -74,6 +74,7 @@ export interface AppConfig {
   weatherProvider: 'azure-maps' | 'openweather';
   dryRun: boolean;
   kasaDeviceAlias: string;
+  winterMode: boolean;
 }
 
 export interface UserInfo {
@@ -86,6 +87,12 @@ export interface UserInfo {
   } | null;
 }
 
+export interface Co2Tracker {
+  runtimeHoursSinceSwap: number;
+  lastSwapAt: string;
+  lastUpdatedAt: string;
+}
+
 export interface SystemHealth {
   lastEvaluationAt: string | null;
   lastWeatherFetchAt: string | null;
@@ -96,6 +103,7 @@ export interface StatusResponse {
   state: SwitchState;
   lastDecision: DecisionResult | null;
   systemHealth: SystemHealth;
+  co2Tracker: Co2Tracker | null;
 }
 
 export interface PlanResponse {

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { fetchConfig, putConfig } from './api/client';
+import { fetchConfig, postCo2Reset, putConfig } from './api/client';
 import { ActivityLog } from './components/ActivityLog';
-import { CalendarView } from './components/CalendarView';
+import { Co2Projection } from './components/Co2Projection';
 import { ConfigEditor } from './components/ConfigEditor';
 import { DecisionPanel } from './components/DecisionPanel';
 import { DryRunBanner } from './components/DryRunBanner';
+import { HeroGraphic } from './components/HeroGraphic';
 import { ManualControls } from './components/ManualControls';
+import { RuntimeChart } from './components/RuntimeChart';
 import { StatusCard } from './components/StatusCard';
 import { SystemHealth } from './components/SystemHealth';
 import { WeatherPanel } from './components/WeatherPanel';
@@ -20,6 +22,7 @@ const App = () => {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [configLoading, setConfigLoading] = useState(true);
   const [configError, setConfigError] = useState<string | null>(null);
+  const [isResettingCo2, setIsResettingCo2] = useState(false);
 
   const loadConfig = useCallback(async () => {
     setConfigLoading(true);
@@ -47,6 +50,18 @@ const App = () => {
     },
     [loadConfig]
   );
+
+  const handleCo2Reset = useCallback(async () => {
+    setIsResettingCo2(true);
+    try {
+      await postCo2Reset();
+      await refetchStatus();
+    } catch (err) {
+      console.error('CO2 reset failed:', err);
+    } finally {
+      setIsResettingCo2(false);
+    }
+  }, [refetchStatus]);
 
   if (authLoading) {
     return (
@@ -88,11 +103,16 @@ const App = () => {
         </div>
       </header>
       <div className="app-main">
+        <HeroGraphic
+          isOn={status?.lastDecision?.desiredState === 'on'}
+          winterMode={Boolean(config?.winterMode)}
+        />
         <DryRunBanner isDryRun={isDryRun} />
         <div className="grid-two">
           <StatusCard
             status={status?.state ?? null}
             lastDecision={status?.lastDecision ?? null}
+            config={config}
             isLoading={statusLoading}
             error={statusError}
             onRetry={refetchStatus}
@@ -119,7 +139,12 @@ const App = () => {
             onRetry={refetchStatus}
           />
         </div>
-        <CalendarView config={config} />
+        <RuntimeChart config={config} />
+        <Co2Projection
+          co2Tracker={status?.co2Tracker ?? null}
+          onReset={handleCo2Reset}
+          isResetting={isResettingCo2}
+        />
         <ManualControls onActionComplete={refetchStatus} />
         <ActivityLog />
         <ConfigEditor

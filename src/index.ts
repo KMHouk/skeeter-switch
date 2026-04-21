@@ -6,3 +6,4 @@ import './functions/command/index';
 import './functions/plan/index';
 import './functions/config/index';
 import './functions/logs/index';
+import './functions/co2-reset/index';

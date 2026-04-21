@@ -16,7 +16,19 @@ app.http('evaluate-http', {
     const authResult = requireAuth(req, corsHeaders);
     if (isAuthError(authResult)) return authResult;
     try {
-      const { decision } = await runEvaluationCycle('http');
+      const outcome = await runEvaluationCycle('http');
+      if (!outcome) {
+        return {
+          status: 200,
+          jsonBody: {
+            winterMode: true,
+            desiredState: 'off',
+            reasons: ['System is in winter mode — automation suspended'],
+          },
+          headers: corsHeaders,
+        };
+      }
+      const { decision } = outcome;
       return { status: 200, jsonBody: decision, headers: corsHeaders };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown evaluation error';
