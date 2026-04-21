@@ -96,7 +96,7 @@ export const RuntimeChart = ({ config }: RuntimeChartProps) => {
     return (
       <div className="card">
         <div className="calendar-header">
-          <div className="card-header">Runtime Projection — {format(currentMonth, 'MMMM yyyy')}</div>
+          <div className="card-header">Runtime Usage — {format(currentMonth, 'MMMM yyyy')}</div>
           <div className="controls-row">
             <button className="button" onClick={handlePrevMonth}>
               ← Prev
@@ -118,7 +118,7 @@ export const RuntimeChart = ({ config }: RuntimeChartProps) => {
           textAlign: 'center',
           fontWeight: 600
         }}>
-          🏠 Winter Mode — Runtime projections paused
+          🏠 Winter Mode — Usage tracking paused
         </div>
       </div>
     );
@@ -127,7 +127,7 @@ export const RuntimeChart = ({ config }: RuntimeChartProps) => {
   if (isLoading && blocks.length === 0) {
     return (
       <div className="card">
-        <div className="card-header">Runtime Projection</div>
+        <div className="card-header">Runtime Usage</div>
         <div className="spinner" />
       </div>
     );
@@ -136,7 +136,7 @@ export const RuntimeChart = ({ config }: RuntimeChartProps) => {
   if (error) {
     return (
       <div className="card">
-        <div className="card-header">Runtime Projection</div>
+        <div className="card-header">Runtime Usage</div>
         <p className="muted">Error: {error}</p>
         <button className="button" onClick={refetch}>
           Retry
@@ -148,7 +148,7 @@ export const RuntimeChart = ({ config }: RuntimeChartProps) => {
   return (
     <div className="card">
       <div className="calendar-header">
-        <div className="card-header">Runtime Projection — {format(currentMonth, 'MMMM yyyy')}</div>
+        <div className="card-header">Runtime Usage — {format(currentMonth, 'MMMM yyyy')}</div>
         <div className="controls-row">
           <button className="button" onClick={handlePrevMonth}>
             ← Prev
