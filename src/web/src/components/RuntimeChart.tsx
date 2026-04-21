@@ -57,17 +57,29 @@ const computeDayRuntimes = (blocks: PlanBlock[], days: Date[], actuals: Record<s
     const isPast = isBefore(dayStart, today);
     const actual = actuals[dayISO];
 
-    // Use actual data for past days when available
-    if (isPast && actual !== undefined) {
+    // Past days: use actuals (0 if none recorded)
+    if (isPast) {
       return {
         date: format(day, 'MMM d'),
         dateISO: dayISO,
-        runtimeHours: actual,
+        runtimeHours: actual ?? 0,
         isActual: true,
         isToday: false,
       };
     }
 
+    // Today: use actual if available, otherwise project from blocks
+    if (isToday(day) && actual !== undefined) {
+      return {
+        date: format(day, 'MMM d'),
+        dateISO: dayISO,
+        runtimeHours: actual,
+        isActual: true,
+        isToday: true,
+      };
+    }
+
+    // Today (no actuals yet) and future days: use projected blocks
     const dayEnd = endOfDay(day);
     let runtimeMs = 0;
 
@@ -93,7 +105,7 @@ const computeDayRuntimes = (blocks: PlanBlock[], days: Date[], actuals: Record<s
       date: format(day, 'MMM d'),
       dateISO: dayISO,
       runtimeHours,
-      isActual: isToday(day) && actual !== undefined,
+      isActual: false,
       isToday: isToday(day),
     };
   });
@@ -241,7 +253,6 @@ export const RuntimeChart = ({ config }: RuntimeChartProps) => {
             const barWidth = Math.max(700 / dayRuntimes.length - 4, 8);
             const y = 240 - barHeight;
             const barFill = day.isActual ? 'url(#bar-gradient)' : 'url(#projected-stripes)';
-            const label = day.isActual ? 'actual' : 'projected';
 
             return (
               <g key={day.dateISO}>
@@ -253,7 +264,7 @@ export const RuntimeChart = ({ config }: RuntimeChartProps) => {
                   fill={barFill}
                   rx="2"
                 >
-                  <title>{day.date}: {day.runtimeHours.toFixed(1)}h {label}</title>
+                  <title>{day.date}: {day.runtimeHours.toFixed(1)}h runtime</title>
                 </rect>
                 {index % 2 === 0 && (
                   <text
