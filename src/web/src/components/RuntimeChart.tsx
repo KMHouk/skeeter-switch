@@ -8,13 +8,9 @@ import {
   subMonths,
   parseISO,
   isToday,
-  startOfDay,
-  endOfDay,
-  isBefore,
-  isAfter,
 } from 'date-fns';
 import { useCalendar } from '../hooks/useCalendar';
-import { AppConfig, PlanBlock } from '../types';
+import { AppConfig } from '../types';
 
 interface RuntimeChartProps {
   config: AppConfig | null;
@@ -49,63 +45,16 @@ function chartScale(windowHours: number): { max: number; ticks: number[] } {
   return { max, ticks };
 }
 
-const computeDayRuntimes = (blocks: PlanBlock[], days: Date[], actuals: Record<string, number>): DayRuntime[] => {
-  const today = startOfDay(new Date());
+const computeDayRuntimes = (days: Date[], actuals: Record<string, number>): DayRuntime[] => {
   return days.map((day) => {
     const dayISO = format(day, 'yyyy-MM-dd');
-    const dayStart = startOfDay(day);
-    const isPast = isBefore(dayStart, today);
     const actual = actuals[dayISO];
-
-    // Past days: use actuals (0 if none recorded)
-    if (isPast) {
-      return {
-        date: format(day, 'MMM d'),
-        dateISO: dayISO,
-        runtimeHours: actual ?? 0,
-        isActual: true,
-        isToday: false,
-      };
-    }
-
-    // Today: use actual if available, otherwise project from blocks
-    if (isToday(day) && actual !== undefined) {
-      return {
-        date: format(day, 'MMM d'),
-        dateISO: dayISO,
-        runtimeHours: actual,
-        isActual: true,
-        isToday: true,
-      };
-    }
-
-    // Today (no actuals yet) and future days: use projected blocks
-    const dayEnd = endOfDay(day);
-    let runtimeMs = 0;
-
-    for (const block of blocks) {
-      if (block.state !== 'on') continue;
-
-      const blockStart = parseISO(block.start);
-      const blockEnd = parseISO(block.end);
-
-      if (isAfter(blockStart, dayEnd) || isBefore(blockEnd, dayStart)) {
-        continue;
-      }
-
-      const effectiveStart = isBefore(blockStart, dayStart) ? dayStart : blockStart;
-      const effectiveEnd = isAfter(blockEnd, dayEnd) ? dayEnd : blockEnd;
-
-      runtimeMs += effectiveEnd.getTime() - effectiveStart.getTime();
-    }
-
-    const runtimeHours = runtimeMs / (1000 * 60 * 60);
 
     return {
       date: format(day, 'MMM d'),
       dateISO: dayISO,
-      runtimeHours,
-      isActual: false,
+      runtimeHours: actual ?? 0,
+      isActual: actual !== undefined,
       isToday: isToday(day),
     };
   });
@@ -130,8 +79,8 @@ export const RuntimeChart = ({ config }: RuntimeChartProps) => {
 
   const dayRuntimes = useMemo(() => {
     const days = eachDayOfInterval(range);
-    return computeDayRuntimes(blocks, days, actuals);
-  }, [blocks, actuals, range]);
+    return computeDayRuntimes(days, actuals);
+  }, [actuals, range]);
 
   const handlePrevMonth = useCallback(() => {
     setCurrentMonth((prev) => subMonths(prev, 1));
@@ -224,14 +173,6 @@ export const RuntimeChart = ({ config }: RuntimeChartProps) => {
               <stop offset="0%" style={{ stopColor: '#3b82f6', stopOpacity: 1 }} />
               <stop offset="100%" style={{ stopColor: '#2563eb', stopOpacity: 1 }} />
             </linearGradient>
-            <linearGradient id="bar-gradient-projected" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" style={{ stopColor: '#93c5fd', stopOpacity: 1 }} />
-              <stop offset="100%" style={{ stopColor: '#60a5fa', stopOpacity: 1 }} />
-            </linearGradient>
-            <pattern id="projected-stripes" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
-              <rect width="6" height="6" fill="url(#bar-gradient-projected)" />
-              <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(255,255,255,0.3)" strokeWidth="2" />
-            </pattern>
           </defs>
           <rect x="0" y="0" width="800" height="260" fill="#fafafa" />
           <line x1="60" y1="40" x2="60" y2="240" stroke="#e2e8f0" strokeWidth="1" />
@@ -252,7 +193,6 @@ export const RuntimeChart = ({ config }: RuntimeChartProps) => {
             const x = 80 + index * (700 / dayRuntimes.length);
             const barWidth = Math.max(700 / dayRuntimes.length - 4, 8);
             const y = 240 - barHeight;
-            const barFill = day.isActual ? 'url(#bar-gradient)' : 'url(#projected-stripes)';
 
             return (
               <g key={day.dateISO}>
@@ -261,7 +201,7 @@ export const RuntimeChart = ({ config }: RuntimeChartProps) => {
                   y={y}
                   width={barWidth}
                   height={barHeight}
-                  fill={barFill}
+                  fill="url(#bar-gradient)"
                   rx="2"
                 >
                   <title>{day.date}: {day.runtimeHours.toFixed(1)}h runtime</title>
