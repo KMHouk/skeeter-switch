@@ -25,9 +25,10 @@ export function evaluateDecision(
       ? nowMinutes >= startMinutes && nowMinutes < endMinutes
       : nowMinutes >= startMinutes || nowMinutes < endMinutes;
 
+  // Temperature is evaluated separately — weatherOk only reflects precip/wind/rain conditions
+  const temperatureOk = weather.temperatureF >= config.temperatureFloorF;
   const weatherOk =
     !weather.currentlyRaining &&
-    weather.temperatureF >= config.temperatureFloorF &&
     weather.precipProbability < config.precipProbThreshold &&
     weather.windSpeedMph < config.windSpeedThreshold;
 
@@ -73,7 +74,7 @@ export function evaluateDecision(
       : `Debounce active: last command ${currentState.lastCommandTime ?? 'unknown'}.`
   );
 
-  const shouldRun = withinTimeWindow && weatherOk && debounceOk;
+  const shouldRun = withinTimeWindow && temperatureOk && weatherOk && debounceOk;
   const desiredState = overrideActive && override ? override.state : shouldRun ? 'on' : 'off';
 
   return {
