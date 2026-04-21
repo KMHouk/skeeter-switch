@@ -1,6 +1,6 @@
 # skeeter-switch 🦟⚡
 
-**Arctic Mosquito Killing System** — Cloud controller for a TP-Link Kasa EP40 smart plug that runs a bug zapper on a smart schedule based on weather, time of day, and manual overrides.
+**Arctic Mosquito Killing System** — Cloud controller for a TP-Link Kasa EP40 smart plug that runs a The Arctic Mosquito Killing System (ARCTIC MKS) on a smart schedule based on weather, time of day, and manual overrides.
 
 ![Dashboard Top](docs/screenshots/Top_Third.png)
 ![Dashboard Middle](docs/screenshots/Middle_Third.png)
