@@ -2,7 +2,9 @@
 
 **Arctic Mosquito Killing System** — Cloud controller for a TP-Link Kasa EP40 smart plug that runs a bug zapper on a smart schedule based on weather, time of day, and manual overrides.
 
-![Dashboard](docs/screenshots/dashboard.png)
+![Dashboard Top](docs/screenshots/Top_Third.png)
+![Dashboard Middle](docs/screenshots/Middle_Third.png)
+![Dashboard Bottom](docs/screenshots/Bottom_Third.png)
 
 ## Architecture
 
