@@ -5,6 +5,7 @@ import {
   getConfig,
   getState,
   logEvent,
+  recordDailyRuntime,
   updateCo2Runtime,
   updateLastDecision,
   updateState,
@@ -77,6 +78,8 @@ export async function runEvaluationCycle(reason: string): Promise<EvaluationOutc
 
   if (decision.desiredState === 'on') {
     await updateCo2Runtime(config.pollIntervalMinutes / 60);
+    const todayISO = now.toISOString().slice(0, 10);
+    await recordDailyRuntime(todayISO, config.pollIntervalMinutes);
   }
 
   console.log(JSON.stringify({ event: 'evaluation_cycle', reason, decision, webhookResult }));

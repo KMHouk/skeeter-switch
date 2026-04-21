@@ -10,6 +10,7 @@ interface DateRange {
 
 interface UseCalendarResult {
   blocks: PlanBlock[];
+  actuals: Record<string, number>;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
@@ -24,6 +25,7 @@ const getDefaultRange = (): DateRange => {
 
 export const useCalendar = (range?: DateRange, config?: AppConfig | null): UseCalendarResult => {
   const [blocks, setBlocks] = useState<PlanBlock[]>([]);
+  const [actuals, setActuals] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,6 +41,7 @@ export const useCalendar = (range?: DateRange, config?: AppConfig | null): UseCa
     try {
       const response = await fetchPlan(fromStr, toStr);
       setBlocks(response.blocks);
+      setActuals(response.actuals ?? {});
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load plan');
@@ -51,5 +54,5 @@ export const useCalendar = (range?: DateRange, config?: AppConfig | null): UseCa
     void loadPlan();
   }, [loadPlan, config?.runWindowStart, config?.runWindowEnd, config?.dryRun]);
 
-  return { blocks, isLoading, error, refetch: loadPlan };
+  return { blocks, actuals, isLoading, error, refetch: loadPlan };
 };

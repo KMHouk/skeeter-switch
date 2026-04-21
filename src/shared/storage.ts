@@ -83,6 +83,7 @@ const STATE_TABLE = 'SwitchStateTable';
 const OVERRIDES_TABLE = 'OverridesTable';
 const CONFIG_TABLE = 'ConfigTable';
 const EVENT_LOG_TABLE = 'EventLogTable';
+const DAILY_RUNTIME_TABLE = 'DailyRuntimeTable';
 
 const STATE_PARTITION = 'state';
 const STATE_ROW = 'current';
@@ -498,4 +499,51 @@ export async function resetCo2Tank(): Promise<void> {
     co2LastUpdatedAt: now,
   };
   await client.upsertEntity(entity, 'Merge');
+}
+
+interface DailyRuntimeEntity {
+  partitionKey: string;
+  rowKey: string;
+  runtimeMinutes: number;
+}
+
+const RUNTIME_PARTITION = 'runtime';
+
+export async function recordDailyRuntime(dateISO: string, minutes: number): Promise<void> {
+  const client = await getTableClient(DAILY_RUNTIME_TABLE);
+  try {
+    const existing = await client.getEntity<DailyRuntimeEntity>(RUNTIME_PARTITION, dateISO);
+    const current = existing.runtimeMinutes ?? 0;
+    await client.upsertEntity(
+      { partitionKey: RUNTIME_PARTITION, rowKey: dateISO, runtimeMinutes: current + minutes },
+      'Replace',
+    );
+  } catch (err) {
+    const error = err as { statusCode?: number };
+    if (error.statusCode === 404) {
+      await client.upsertEntity(
+        { partitionKey: RUNTIME_PARTITION, rowKey: dateISO, runtimeMinutes: minutes },
+        'Replace',
+      );
+    } else {
+      throw err;
+    }
+  }
+}
+
+export async function getDailyRuntimes(
+  fromDate: string,
+  toDate: string,
+): Promise<Record<string, number>> {
+  const client = await getTableClient(DAILY_RUNTIME_TABLE);
+  const entities = client.listEntities<DailyRuntimeEntity>({
+    queryOptions: {
+      filter: `PartitionKey eq '${RUNTIME_PARTITION}' and RowKey ge '${fromDate}' and RowKey le '${toDate}'`,
+    },
+  });
+  const result: Record<string, number> = {};
+  for await (const entity of entities) {
+    result[entity.rowKey] = Math.round(((entity.runtimeMinutes ?? 0) / 60) * 100) / 100;
+  }
+  return result;
 }

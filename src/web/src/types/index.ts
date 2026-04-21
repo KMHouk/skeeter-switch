@@ -110,5 +110,6 @@ export interface PlanResponse {
   from: string;
   to: string;
   blocks: PlanBlock[];
+  actuals: Record<string, number>;
   generatedAt: string;
 }

@@ -364,4 +364,4 @@ gh workflow run swa-deploy.yml
 
 ## License
 
-Private project. All rights reserved.
+MIT License — see [LICENSE](LICENSE) for details.

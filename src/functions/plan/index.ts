@@ -4,7 +4,7 @@ import { isAuthError, requireAuth } from '../../shared/auth';
 import { getCorsHeaders } from '../../shared/cors';
 import { evaluateDecision } from '../../shared/decision';
 import { fetchWeather } from '../../shared/weather';
-import { getConfig } from '../../shared/storage';
+import { getConfig, getDailyRuntimes } from '../../shared/storage';
 import { PlanBlock, PlanResponse, SwitchState } from '../../shared/types';
 
 const corsHeaders = getCorsHeaders('GET,OPTIONS');
@@ -91,10 +91,13 @@ app.http('plan', {
         blocks.push(currentBlock);
       }
 
+      const actuals = await getDailyRuntimes(fromParam, toParam);
+
       const response: PlanResponse = {
         from: fromParam,
         to: toParam,
         blocks,
+        actuals,
         generatedAt: new Date().toISOString(),
       };
       return { status: 200, jsonBody: response, headers: corsHeaders };
