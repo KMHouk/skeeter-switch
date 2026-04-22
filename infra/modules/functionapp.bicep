@@ -68,6 +68,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
     httpsOnly: true
     keyVaultReferenceIdentity: identityId
     siteConfig: {
+      alwaysOn: true
       linuxFxVersion: 'Node|20'
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
