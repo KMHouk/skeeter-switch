@@ -52,7 +52,7 @@ export function evaluateDecision(
       : `Outside run window ${config.runWindowStart}-${config.runWindowEnd} (${config.timezone}).`
   );
   if (weather.currentlyRaining) {
-    reasons.push('Currently raining — device is not weatherproof (hard stop).');
+    reasons.push('Currently raining — mosquitoes shelter during rain and are not active (hard stop).');
   }
   if (weather.temperatureF < config.temperatureFloorF) {
     reasons.push(
