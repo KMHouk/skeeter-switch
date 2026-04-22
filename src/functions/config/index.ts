@@ -61,14 +61,6 @@ function parseConfigUpdate(body: Record<string, unknown>): Partial<AppConfig> | 
     if (typeof body.dryRun !== 'boolean') return 'Invalid dryRun';
     update.dryRun = body.dryRun;
   }
-  if ('iftttEventOn' in body) {
-    if (typeof body.iftttEventOn !== 'string') return 'Invalid iftttEventOn';
-    // Ignored — IFTTT has been replaced by Kasa
-  }
-  if ('iftttEventOff' in body) {
-    if (typeof body.iftttEventOff !== 'string') return 'Invalid iftttEventOff';
-    // Ignored — IFTTT has been replaced by Kasa
-  }
   if ('kasaDeviceAlias' in body) {
     if (typeof body.kasaDeviceAlias !== 'string') return 'Invalid kasaDeviceAlias';
     update.kasaDeviceAlias = body.kasaDeviceAlias;
